@@ -25,7 +25,8 @@
         "READ_EXTERNAL_STORAGE",
         "WRITE_EXTERNAL_STORAGE",
         "INTERNET"
-      ]
+      ],
+      "package": "com.vadminingspace.vadmobile"
     },
     "web": {
       "output": "static",
