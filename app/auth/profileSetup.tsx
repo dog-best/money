@@ -44,18 +44,21 @@ export default function ProfileSetup() {
 
     try {
       if (avatar) {
+        // 🔴 ONLY THESE LINES ARE DISABLED
         const imageRef = ref(storage, `avatars/${user?.uid}.jpg`);
 
+        /*
         const img = await fetch(avatar);
         const bytes = await img.blob();
 
         await uploadBytes(imageRef, bytes);
         avatarUrl = await getDownloadURL(imageRef);
+        */
       }
 
       await setDoc(doc(db, "users", user!.uid), {
         username: username.trim(),
-        avatarUrl,
+        avatarUrl, // stays null
         referralCode,
         referredBy: referredBy.trim() || null,
         createdAt: serverTimestamp(),

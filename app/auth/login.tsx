@@ -34,7 +34,7 @@ export default function LoginScreen() {
           router.replace("/auth/profileSetup");
         } else {
           // Profile is set up, redirect to the mining dashboard
-          router.replace("/"); // since the root of your tabs already redirects to index
+          router.replace("/(tabs)"); // since the root of your tabs already redirects to index
         }
       }
     } catch (error: any) {

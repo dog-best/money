@@ -42,7 +42,8 @@ export default function RegisterScreen() {
         router.replace("/auth/profileSetup"); // Redirect to profile setup if not completed
       } else {
         // If profile exists, redirect to home page (tabs)
-        router.replace("/"); // since the root of your tabs already redirects to index
+        router.replace("/(tabs)");
+ // since the root of your tabs already redirects to index
       }
     } catch (err: any) {
       setErrorMsg(err.message);
