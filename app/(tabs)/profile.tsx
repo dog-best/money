@@ -12,8 +12,8 @@ import {
   Easing,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { auth } from "../../firebase/firebaseConfig";
-import { db } from "../../firebase/firebaseConfig";
+import { auth, db, storage } from "../../firebase/firebaseConfig";
+
 import {
   doc,
   getDoc,

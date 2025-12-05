@@ -1,4 +1,3 @@
-// app/(tabs)/explore.tsx
 import React, { useEffect, useRef } from "react";
 import {
   View,
@@ -7,17 +6,16 @@ import {
   SafeAreaView,
   ScrollView,
   TouchableOpacity,
-  Image,
   Alert,
   Animated,
   Easing,
   Dimensions,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { auth } from "../../firebase/firebaseConfig"; // keep auth for session info
+import { auth } from "../../firebase/firebaseConfig";
 
 const { width } = Dimensions.get("window");
-const CARD_W = Math.round((width - 60) / 2);
+const CARD_W = Math.floor((width - 48) / 2); // perfect grid width
 
 const SAMPLE_MARKET_ITEMS = [
   {
@@ -60,20 +58,21 @@ const SAMPLE_MARKET_ITEMS = [
 
 export default function ExploreScreen() {
   const user = auth.currentUser;
+
   const fade = useRef(new Animated.Value(0)).current;
-  const headerY = useRef(new Animated.Value(-18)).current;
+  const slideY = useRef(new Animated.Value(10)).current;
 
   useEffect(() => {
     Animated.parallel([
       Animated.timing(fade, {
         toValue: 1,
-        duration: 520,
+        duration: 450,
         easing: Easing.out(Easing.exp),
         useNativeDriver: true,
       }),
-      Animated.timing(headerY, {
+      Animated.timing(slideY, {
         toValue: 0,
-        duration: 600,
+        duration: 550,
         easing: Easing.out(Easing.exp),
         useNativeDriver: true,
       }),
@@ -81,24 +80,14 @@ export default function ExploreScreen() {
   }, []);
 
   const goSoon = (label?: string) => {
-    Alert.alert("Launching soon!", label ? `${label} — launching soon!` : "Feature launching soon!");
+    Alert.alert(
+      "Launching Soon",
+      label ? `${label} — launching soon!` : "Feature launching soon!"
+    );
   };
 
-  const renderCard = (item: any, idx: number) => {
-    const cardScale = new Animated.Value(1);
-
-    const handlePressIn = () =>
-      Animated.spring(cardScale, {
-        toValue: 0.98,
-        useNativeDriver: true,
-      }).start();
-
-    const handlePressOut = () =>
-      Animated.spring(cardScale, {
-        toValue: 1,
-        friction: 6,
-        useNativeDriver: true,
-      }).start();
+  const renderCard = (item: any) => {
+    const scale = useRef(new Animated.Value(1)).current;
 
     return (
       <Animated.View
@@ -106,24 +95,38 @@ export default function ExploreScreen() {
         style={[
           styles.marketCard,
           {
-            transform: [{ scale: cardScale }],
             opacity: fade,
+            transform: [{ scale }],
           },
         ]}
       >
         <TouchableOpacity
-          activeOpacity={0.95}
+          activeOpacity={0.9}
           onPress={() => goSoon(item.title)}
-          onPressIn={handlePressIn}
-          onPressOut={handlePressOut}
+          onPressIn={() =>
+            Animated.spring(scale, {
+              toValue: 0.96,
+              useNativeDriver: true,
+            }).start()
+          }
+          onPressOut={() =>
+            Animated.spring(scale, {
+              toValue: 1,
+              friction: 5,
+              useNativeDriver: true,
+            }).start()
+          }
           style={{ flex: 1 }}
         >
           <View style={styles.media}>
-            {/* Placeholder image area */}
             <View style={styles.mediaPlaceholder}>
-              <Ionicons name="image" size={36} color="rgba(255,255,255,0.12)" />
+              <Ionicons
+                name="image"
+                size={32}
+                color="rgba(255,255,255,0.15)"
+              />
             </View>
-            {/* Badge */}
+
             <View style={styles.badgeWrap}>
               <Text style={styles.badgeText}>{item.badge}</Text>
             </View>
@@ -133,6 +136,7 @@ export default function ExploreScreen() {
             <Text numberOfLines={1} style={styles.cardTitle}>
               {item.title}
             </Text>
+
             <Text numberOfLines={1} style={styles.cardCollection}>
               {item.collection}
             </Text>
@@ -142,14 +146,14 @@ export default function ExploreScreen() {
                 <Text style={styles.pricePrimary}>
                   {item.price.toLocaleString()} {item.currency}
                 </Text>
-                <Text style={styles.priceSub}>Reserve · Tokenized asset</Text>
+                <Text style={styles.priceSub}>Reserve · Tokenized Asset</Text>
               </View>
 
               <TouchableOpacity
                 onPress={() => goSoon("Buy / Trade")}
-                style={styles.cardAction}
+                style={styles.buyBtn}
               >
-                <Text style={styles.cardActionText}>BUY</Text>
+                <Text style={styles.buyText}>BUY</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -160,209 +164,216 @@ export default function ExploreScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <Animated.View style={[styles.header, { opacity: fade, transform: [{ translateY: headerY }] }]}>
+      {/* HEADER */}
+      <Animated.View
+        style={[
+          styles.header,
+          {
+            opacity: fade,
+            transform: [{ translateY: slideY }],
+          },
+        ]}
+      >
         <View>
-          <Text style={styles.title}>VAD MARKETPLACE</Text>
-          <Text style={styles.subtitle}>EARN, TRADE, OWN, WIN!</Text>
+          <Text style={styles.title}>Marketplace</Text>
+          <Text style={styles.subtitle}>Earn • Trade • Own</Text>
         </View>
 
-        <View style={styles.rightGroup}>
-          <TouchableOpacity onPress={() => goSoon("Wallet / Connect")} style={styles.iconBtn}>
-            <Ionicons name="wallet" size={20} color="#fff" />
+        <View style={styles.headerRight}>
+          <TouchableOpacity onPress={() => goSoon("Wallet")} style={styles.iconBtn}>
+            <Ionicons name="wallet" size={18} color="#fff" />
           </TouchableOpacity>
-
           <TouchableOpacity onPress={() => goSoon("Notifications")} style={styles.iconBtn}>
-            <Ionicons name="notifications" size={20} color="#fff" />
+            <Ionicons name="notifications" size={18} color="#fff" />
           </TouchableOpacity>
 
           <View style={styles.userTag}>
-            <Ionicons name="person" size={16} color="#000" />
+            <Ionicons name="person" size={15} color="#000" />
             <Text style={styles.userTagText}>
-              {user ? (user.email ? user.email.split("@")[0] : user.uid.slice(0, 6)) : "Guest"}
+              {user
+                ? user.email
+                  ? user.email.split("@")[0]
+                  : user.uid.slice(0, 6)
+                : "Guest"}
             </Text>
           </View>
         </View>
       </Animated.View>
 
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        {/* Spotlight / hero area */}
-        <View style={styles.hero}>
-          <View style={styles.heroLeft}>
-            <Text style={styles.heroTitle}>Featured drop</Text>
-            <Text style={styles.heroSub}>
-              Tokenized properties, rare art & exclusive collections — trade with VAD.
-            </Text>
+      {/* CONTENT */}
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scroll}
+      >
+        {/* HERO */}
+        <Animated.View
+          style={[
+            styles.hero,
+            {
+              opacity: fade,
+              transform: [{ translateY: slideY }],
+            },
+          ]}
+        >
+          <Text style={styles.heroTitle}>Featured Drop</Text>
+          <Text style={styles.heroSub}>
+            Trade rare art, tokenized land parcels, and exclusive VAD collections.
+          </Text>
 
-            <View style={styles.heroActions}>
-              <TouchableOpacity onPress={() => goSoon("Explore Drops")} style={styles.ghostBtn}>
-                <Text style={styles.ghostBtnText}>Explore drops</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => goSoon("Create Listing")} style={styles.primaryBtn}>
-                <Text style={styles.primaryBtnText}>Create listing</Text>
-              </TouchableOpacity>
-            </View>
+          <View style={styles.heroActions}>
+            <TouchableOpacity style={styles.ghostBtn} onPress={() => goSoon("Explore Drops")}>
+              <Text style={styles.ghostText}>Explore</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.primaryBtn} onPress={() => goSoon("Create Listing")}>
+              <Text style={styles.primaryText}>Create</Text>
+            </TouchableOpacity>
           </View>
+        </Animated.View>
 
-          <View style={styles.heroPreview}>
-            <View style={styles.previewCard}>
-              <Ionicons name="sparkles" size={28} color="#fff" />
-              <Text style={styles.previewTitle}>Oceanfront Parcel #001</Text>
-              <Text style={styles.previewPrice}>1,250 VAD</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Filters row (static) */}
+        {/* FILTERS */}
         <View style={styles.filtersRow}>
           <TouchableOpacity onPress={() => goSoon("Filters")} style={styles.filterPill}>
             <Ionicons name="funnel" size={14} color="#fff" />
             <Text style={styles.filterText}>Filters</Text>
           </TouchableOpacity>
+
           <TouchableOpacity onPress={() => goSoon("Sort")} style={styles.filterPill}>
             <Ionicons name="swap-vertical" size={14} color="#fff" />
             <Text style={styles.filterText}>Sort</Text>
           </TouchableOpacity>
+
           <TouchableOpacity onPress={() => goSoon("Collections")} style={styles.filterPill}>
             <Ionicons name="layers" size={14} color="#fff" />
             <Text style={styles.filterText}>Collections</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Grid of marketplace cards */}
+        {/* GRID */}
         <View style={styles.grid}>
-          {SAMPLE_MARKET_ITEMS.map((it, i) => renderCard(it, i))}
+          {SAMPLE_MARKET_ITEMS.map((it) => renderCard(it))}
         </View>
 
-        {/* Large CTA / informational cards */}
+        {/* INFO CARDS */}
         <View style={styles.infoRow}>
-          <TouchableOpacity style={styles.infoCard} onPress={() => goSoon("Learn about VAD staking")}>
+          <TouchableOpacity style={styles.infoCard} onPress={() => goSoon("VAD Staking")}>
             <Ionicons name="trending-up" size={20} color="#5865F2" />
             <View style={{ marginLeft: 12 }}>
               <Text style={styles.infoTitle}>Stake & Earn</Text>
-              <Text style={styles.infoSub}>Earn passive VAD rewards when you stake marketplace assets.</Text>
+              <Text style={styles.infoSub}>Earn passive VAD rewards.</Text>
             </View>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.infoCard} onPress={() => goSoon("How tokenization works")}>
+          <TouchableOpacity style={styles.infoCard} onPress={() => goSoon("Tokenization 101")}>
             <Ionicons name="cube" size={20} color="#5865F2" />
             <View style={{ marginLeft: 12 }}>
               <Text style={styles.infoTitle}>Tokenization 101</Text>
-              <Text style={styles.infoSub}>Learn how real-world assets become tradable tokens.</Text>
+              <Text style={styles.infoSub}>Learn how assets become tokens.</Text>
             </View>
           </TouchableOpacity>
         </View>
 
-        <View style={{ height: 60 }} />
+        <View style={{ height: 80 }} />
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-const BG = "#000000";
-const CARD = "#0b0b0b";
+/* 🎨 COLORS */
+const BG = "#000";
+const CARD = "#0D0D0D";
 const BLUE = "#5865F2";
 const MUTED = "rgba(255,255,255,0.55)";
 
+/* 🎨 STYLES */
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: BG,
   },
+
+  /** HEADER **/
   header: {
-    paddingTop: 18,
-    paddingBottom: 10,
     paddingHorizontal: 18,
+    paddingTop: 16,
+    paddingBottom: 12,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255,255,255,0.03)",
+    borderBottomColor: "rgba(255,255,255,0.06)",
   },
   title: {
-    color: "#fff",
-    fontSize: 18,
+    fontSize: 19,
     fontWeight: "800",
+    color: "#fff",
   },
   subtitle: {
-    color: "rgba(255,255,255,0.45)",
     fontSize: 12,
+    color: MUTED,
     marginTop: 2,
   },
-  rightGroup: {
+  headerRight: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    gap: 8,
   },
   iconBtn: {
-    backgroundColor: "rgba(255,255,255,0.03)",
+    backgroundColor: "rgba(255,255,255,0.05)",
     padding: 8,
     borderRadius: 10,
-    marginLeft: 8,
   },
   userTag: {
     backgroundColor: BLUE,
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 20,
-    marginLeft: 10,
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
   },
   userTagText: {
-    marginLeft: 6,
     color: "#fff",
-    fontWeight: "700",
+    fontWeight: "800",
     fontSize: 12,
   },
 
   scroll: {
     paddingHorizontal: 18,
     paddingTop: 18,
-    paddingBottom: 30,
   },
 
+  /** HERO **/
   hero: {
     backgroundColor: CARD,
-    borderRadius: 14,
-    overflow: "hidden",
-    padding: 14,
-    marginBottom: 16,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  heroLeft: {
-    flex: 1,
-    paddingRight: 12,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 18,
   },
   heroTitle: {
-    color: "rgba(255,255,255,0.9)",
-    fontSize: 16,
+    color: "#fff",
     fontWeight: "800",
+    fontSize: 16,
   },
   heroSub: {
-    color: "rgba(255,255,255,0.45)",
-    marginTop: 6,
+    color: MUTED,
     fontSize: 13,
+    marginTop: 6,
     lineHeight: 18,
   },
   heroActions: {
     flexDirection: "row",
-    marginTop: 12,
+    marginTop: 14,
     gap: 10,
   },
   ghostBtn: {
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 10,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.06)",
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 8,
+    borderColor: "rgba(255,255,255,0.08)",
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 10,
   },
-  ghostBtnText: {
+  ghostText: {
     color: "#fff",
     fontWeight: "700",
   },
@@ -371,85 +382,61 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 14,
     borderRadius: 10,
-    alignItems: "center",
-    justifyContent: "center",
   },
-  primaryBtnText: {
+  primaryText: {
     color: "#fff",
     fontWeight: "800",
-  },
-  heroPreview: {
-    width: 120,
-    alignItems: "center",
-  },
-  previewCard: {
-    backgroundColor: "rgba(255,255,255,0.03)",
-    width: 110,
-    height: 110,
-    borderRadius: 12,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  previewTitle: {
-    color: "#fff",
-    fontWeight: "800",
-    marginTop: 8,
-    fontSize: 12,
-  },
-  previewPrice: {
-    color: "rgba(255,255,255,0.65)",
-    fontWeight: "700",
-    marginTop: 4,
-    fontSize: 12,
   },
 
+  /** FILTERS **/
   filtersRow: {
     flexDirection: "row",
-    marginBottom: 12,
+    marginBottom: 14,
     gap: 10,
   },
   filterPill: {
-    backgroundColor: "rgba(255,255,255,0.03)",
+    backgroundColor: "rgba(255,255,255,0.05)",
     paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 999,
+    paddingVertical: 7,
+    borderRadius: 50,
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: 6,
   },
   filterText: {
     color: "#fff",
-    fontWeight: "700",
-    marginLeft: 6,
     fontSize: 12,
+    fontWeight: "700",
   },
 
+  /** GRID **/
   grid: {
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "space-between",
   },
+
+  /** MARKET CARD **/
   marketCard: {
     width: CARD_W,
     backgroundColor: CARD,
-    borderRadius: 12,
+    borderRadius: 14,
     overflow: "hidden",
-    marginBottom: 14,
+    marginBottom: 16,
   },
   media: {
-    position: "relative",
     height: CARD_W,
-    backgroundColor: "rgba(255,255,255,0.02)",
+    backgroundColor: "rgba(255,255,255,0.03)",
     justifyContent: "center",
     alignItems: "center",
+    position: "relative",
   },
   mediaPlaceholder: {
-    width: "92%",
-    height: "90%",
-    borderRadius: 8,
+    width: "90%",
+    height: "88%",
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.03)",
-    backgroundColor: "rgba(255,255,255,0.02)",
+    borderColor: "rgba(255,255,255,0.05)",
     justifyContent: "center",
     alignItems: "center",
   },
@@ -457,15 +444,15 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 10,
     left: 10,
-    backgroundColor: "rgba(88,101,242,0.12)",
+    backgroundColor: "rgba(88,101,242,0.15)",
     paddingHorizontal: 8,
-    paddingVertical: 6,
+    paddingVertical: 5,
     borderRadius: 8,
   },
   badgeText: {
     color: BLUE,
+    fontSize: 10,
     fontWeight: "800",
-    fontSize: 11,
   },
 
   cardBody: {
@@ -473,14 +460,14 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     color: "#fff",
-    fontWeight: "800",
     fontSize: 13,
+    fontWeight: "800",
   },
   cardCollection: {
-    color: "rgba(255,255,255,0.45)",
-    fontSize: 12,
-    marginTop: 4,
-    marginBottom: 8,
+    color: MUTED,
+    fontSize: 11,
+    marginTop: 3,
+    marginBottom: 10,
   },
   cardFooter: {
     flexDirection: "row",
@@ -489,44 +476,46 @@ const styles = StyleSheet.create({
   },
   pricePrimary: {
     color: "#fff",
-    fontWeight: "800",
     fontSize: 13,
+    fontWeight: "800",
   },
   priceSub: {
-    color: "rgba(255,255,255,0.38)",
+    color: "rgba(255,255,255,0.4)",
     fontSize: 11,
   },
-  cardAction: {
-    backgroundColor: "rgba(255,255,255,0.03)",
+
+  buyBtn: {
+    backgroundColor: "rgba(255,255,255,0.05)",
     paddingVertical: 6,
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
     borderRadius: 8,
   },
-  cardActionText: {
+  buyText: {
     color: "#fff",
-    fontWeight: "800",
     fontSize: 12,
+    fontWeight: "800",
   },
 
+  /** INFO CARDS **/
   infoRow: {
-    marginTop: 8,
+    marginTop: 10,
     gap: 10,
   },
   infoCard: {
     backgroundColor: CARD,
-    padding: 12,
-    borderRadius: 12,
+    padding: 14,
+    borderRadius: 14,
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 10,
   },
   infoTitle: {
     color: "#fff",
     fontWeight: "800",
   },
   infoSub: {
-    color: "rgba(255,255,255,0.45)",
-    fontSize: 13,
-    marginTop: 4,
+    color: MUTED,
+    marginTop: 3,
+    fontSize: 12,
   },
 });
+

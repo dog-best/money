@@ -1,5 +1,6 @@
 import { doc, getDoc, updateDoc } from "firebase/firestore";
-import { db, auth } from "./firebaseConfig";
+import { auth, db, storage } from "../firebase/firebaseConfig";
+
 
 // Start Mining
 export const startMining = async (uid: string) => {

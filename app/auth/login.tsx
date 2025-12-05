@@ -10,9 +10,7 @@ import {
 } from "react-native";
 import { Link, useRouter } from "expo-router";
 import { signInWithEmailAndPassword } from "firebase/auth";
-import { auth } from "../../firebase/firebaseConfig";
-import { doc, getDoc } from "firebase/firestore";
-import { db } from "../../firebase/firestore";
+import { auth, db, storage } from "../../firebase/firebaseConfig";
 
 import Animated, {
   FadeInUp,

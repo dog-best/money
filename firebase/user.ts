@@ -7,7 +7,7 @@ import {
   increment,
   Timestamp,
 } from "firebase/firestore";
-import { auth, db } from "./firebaseConfig";
+import { auth, db, storage } from "../firebase/firebaseConfig";
 import { UserProfile, MiningData, ReferralData } from "./types";
 import { arrayUnion } from "firebase/firestore";
 

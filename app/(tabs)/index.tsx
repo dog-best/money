@@ -1,4 +1,3 @@
-// app/(tabs)/index.tsx
 import React, { useEffect, useRef, useState } from "react";
 import {
   View,
@@ -10,17 +9,21 @@ import {
   Animated,
   Dimensions,
 } from "react-native";
+
 import { MotiView } from "moti";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { auth, db } from "../../firebase/firebaseConfig"; // verify path
-import { doc, getDoc } from "firebase/firestore";
 
-import { startMining, stopMining, claimMiningRewards } from "../../firebase/mining";
+import { auth, db } from "../../firebase/firebaseConfig"; // ✅ Correct
+import { doc, getDoc } from "firebase/firestore";         // ✅ SDK import stays
+
+import { startMining, stopMining, claimMiningRewards } from "../../firebase/mining";  
+// ✅ Keep this if mining.ts still exists
 
 import { LinearGradient } from "expo-linear-gradient";
 
 const { width } = Dimensions.get("window");
+
 
 export default function MiningDashboard() {
   const router = useRouter();

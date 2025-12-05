@@ -12,15 +12,17 @@ import {
   Animated,
   Easing,
 } from "react-native";
-import * as ImagePicker from "expo-image-picker";
-import { auth } from "../../firebase/auth";
 
-import { db } from "../../firebase/firestore";
-import { storage } from "../../firebase/storage";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { doc, setDoc, serverTimestamp } from "firebase/firestore";
+import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+
+// ✅ All Firebase imports come from ONE file
+import { auth, db, storage } from "../../firebase/firebaseConfig";
+
+// Firebase helpers remain the same
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 
 export default function ProfileSetup() {
   const router = useRouter();

@@ -17,7 +17,7 @@ import {
   verifyPasswordResetCode,
   confirmPasswordReset,
 } from "firebase/auth";
-import { auth } from "../../firebase/firebaseConfig";
+import { auth, db, storage } from "../../firebase/firebaseConfig";
 import { Link } from "expo-router";
 
 export default function ForgotPasswordScreen() {

@@ -8,11 +8,13 @@ import {
   Pressable,
   TouchableOpacity,
 } from "react-native";
+
 import { createUserWithEmailAndPassword } from "firebase/auth";
-import { auth } from "../../firebase/firebaseConfig";
+import { auth, db } from "../../firebase/firebaseConfig";   // ✅ FIXED
+
 import { Link, useRouter } from "expo-router";
-import { doc, getDoc } from "firebase/firestore";
-import { db } from "../../firebase/firestore";
+
+import { doc, getDoc } from "firebase/firestore";            // ✅ SDK import stays
 
 import Animated, {
   FadeInUp,
@@ -23,6 +25,7 @@ import Animated, {
 } from "react-native-reanimated";
 
 import { Ionicons } from "@expo/vector-icons";
+
 
 export default function RegisterScreen() {
   const router = useRouter();
