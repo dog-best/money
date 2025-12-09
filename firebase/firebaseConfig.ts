@@ -1,11 +1,12 @@
 import {
   initializeApp,
   getApps,
-  FirebaseApp
+  getApp,
+  FirebaseApp,
 } from "firebase/app";
-import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
-import { getStorage } from "firebase/storage";
+import { getAuth, Auth } from "firebase/auth";
+import { getFirestore, Firestore } from "firebase/firestore";
+import { getStorage, FirebaseStorage } from "firebase/storage";
 
 const firebaseConfig = {
   apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY!,
@@ -16,16 +17,53 @@ const firebaseConfig = {
   appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID!,
 };
 
-let app: FirebaseApp;
+// ------------ FIX: Safe lazy initialization -------------
+let _app: FirebaseApp | null = null;
+let _auth: Auth | null = null;
+let _db: Firestore | null = null;
+let _storage: FirebaseStorage | null = null;
 
-if (!getApps().length) {
-  app = initializeApp(firebaseConfig);
-} else {
-  app = getApps()[0] as FirebaseApp;
+function ensureApp(): FirebaseApp {
+  if (!_app) {
+    _app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+  }
+  return _app;
 }
 
-export const auth = getAuth(app);
-export const db = getFirestore(app);
-export const storage = getStorage(app);
+// TS needs these declared here so other files can import them normally:
+export let auth: Auth;
+export let db: Firestore;
+export let storage: FirebaseStorage;
+export let app: FirebaseApp;
 
-export { app };
+// Lazy getters that assign values only when first accessed
+Object.defineProperties(exports, {
+  app: {
+    enumerable: true,
+    get() {
+      if (!_app) ensureApp();
+      return _app!;
+    },
+  },
+  auth: {
+    enumerable: true,
+    get() {
+      if (!_auth) _auth = getAuth(ensureApp());
+      return _auth!;
+    },
+  },
+  db: {
+    enumerable: true,
+    get() {
+      if (!_db) _db = getFirestore(ensureApp());
+      return _db!;
+    },
+  },
+  storage: {
+    enumerable: true,
+    get() {
+      if (!_storage) _storage = getStorage(ensureApp());
+      return _storage!;
+    },
+  },
+});
