@@ -9,7 +9,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { useEffect, useRef, useState, useMemo } from "react";
-import { auth } from "../firebase/firebaseConfig";
+import { auth, db } from "../firebase/firebaseConfig";
 import { claimDailyReward } from "../firebase/user";
 import { useMining } from "../hooks/useMining";
 import { Timestamp } from "firebase/firestore";

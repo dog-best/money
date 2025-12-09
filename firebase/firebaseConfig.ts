@@ -4,46 +4,21 @@ import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
-function missingEnv(name: string) {
-  console.error(`[FIREBASE] missing env: ${name}`);
-  return false;
-}
-
-const required = {
-  apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
+// --- DIRECT FIREBASE WEB CONFIG (Correct for React Native / Expo) ---
+const firebaseConfig = {
+  apiKey: "AIzaSyAap9MZDpdpsixSY1dD5m4x_XXj1poM6d0",
+  authDomain: "vad-app-4a6e8.firebaseapp.com",
+  projectId: "vad-app-4a6e8",
+  storageBucket: "vad-app-4a6e8.firebasestorage.app",
+  messagingSenderId: "98354868664",
+  appId: "1:98354868664:web:441334cb2f14a3712f9f4d",
 };
 
-const missing = Object.entries(required).filter(([k, v]) => !v).map(([k]) => k);
+// Initialize Firebase only once
+const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
-if (missing.length) {
-  console.warn(
-    `[FIREBASE] One or more Firebase env vars are missing: ${missing.join(
-      ", "
-    )}. Firebase will not be initialized.`
-  );
-}
-
-/** Initialize app only when all required envs exist */
-export const app =
-  missing.length === 0
-    ? !getApps().length
-      ? initializeApp({
-          apiKey: required.apiKey!,
-          authDomain: required.authDomain!,
-          projectId: required.projectId!,
-          storageBucket: required.storageBucket!,
-          messagingSenderId: required.messagingSenderId!,
-          appId: required.appId!,
-        })
-      : getApp()
-    : null;
-
-// Export single instances if app exists — otherwise export nulls and safe getters
-export const auth = app ? getAuth(app) : (null as any);
-export const db = app ? getFirestore(app) : (null as any);
-export const storage = app ? getStorage(app) : (null as any);
+// Export single instances
+export const auth = getAuth(app);
+export const db = getFirestore(app);
+export const storage = getStorage(app);
+export { app };

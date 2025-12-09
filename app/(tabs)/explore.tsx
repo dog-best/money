@@ -12,7 +12,8 @@ import {
   Dimensions,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { auth } from "../../firebase/firebaseConfig";
+import { auth, db } from "../../firebase/firebaseConfig";
+
 
 const { width } = Dimensions.get("window");
 const CARD_W = Math.floor((width - 48) / 2); // perfect grid width

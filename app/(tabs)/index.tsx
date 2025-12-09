@@ -17,13 +17,14 @@ import { MotiText } from "moti";
 import { MaterialIcons, Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
-import { auth, app } from "../../firebase/firebaseConfig";
+import { auth } from "../../firebase/firebaseConfig";
 import { useMining } from "../../hooks/useMining";
 import { getDatabase, ref as dbRef, onValue } from "firebase/database";
 import DailyClaim from "../../components/DailyClaim";
 import Boost from "../../components/Boost";
 import WatchEarn from "../../components/Watch-Earn";
 import AdBanner from "../../components/AdBanner";
+import { app } from "../../firebase/firebaseConfig";
 import { Timestamp } from "firebase/firestore"; // if needed
 
 /* ---------- constants ---------- */

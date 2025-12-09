@@ -9,7 +9,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { useInterstitialAd } from "react-native-google-mobile-ads";
-import { auth } from "../firebase/firebaseConfig";
+import { auth, db } from "../firebase/firebaseConfig";
 import { claimBoostReward } from "../firebase/user";
 import { useMining } from "../hooks/useMining";
 import { Timestamp } from "firebase/firestore";
