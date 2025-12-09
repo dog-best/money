@@ -6,7 +6,6 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  Image,
   Alert,
   StyleSheet,
   KeyboardAvoidingView,
@@ -15,18 +14,15 @@ import {
   Easing,
 } from "react-native";
 
-import * as ImagePicker from "expo-image-picker";
+import * as ImagePicker from "expo-image-picker"; // 🔒 Kept for future re-enable
 import { useRouter } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
 
-// ✅ All Firebase imports come from ONE file
+// Firebase
 import { auth, db, storage } from "../../firebase/firebaseConfig";
-
-// Firebase helpers
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 
-/* ---------- Expo Router Wrapper (DEFAULT EXPORT) ---------- */
+/* ---------- Expo Router Wrapper ---------- */
 export default function ProfileSetup() {
   return <ProfileSetupScreen />;
 }
@@ -36,15 +32,19 @@ function ProfileSetupScreen() {
   const router = useRouter();
 
   const [username, setUsername] = useState("");
-  const [avatar, setAvatar] = useState<string | null>(null);
+  const [avatar, setAvatar] = useState<string | null>(null); // 🔒 Logic kept
   const [referredBy, setReferredBy] = useState("");
 
   const user = auth.currentUser;
 
-  // generate referral code from user id
-  const referralCode = user?.uid.slice(0, 8) || "loading";
+  /** Crash-proof: redirect if no auth user */
+  useEffect(() => {
+    if (!user) router.replace("/auth/login");
+  }, [user]);
 
-  // keep the function and imports so you can re-enable later
+  const referralCode = user?.uid?.slice(0, 8) ?? "loading";
+
+  // 🔒 Avatar logic preserved, but unused in UI
   const pickAvatar = async () => {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -68,17 +68,16 @@ function ProfileSetupScreen() {
       return;
     }
 
-    let avatarUrl = null;
+    let avatarUrl: string | null = null;
 
     try {
       if (avatar) {
-        // disabled upload for now — preserved for future enablement
+        /** 🔒 Avatar upload kept but disabled */
         const imageRef = ref(storage, `avatars/${user?.uid}.jpg`);
 
-        /*
+        /**
         const img = await fetch(avatar);
         const bytes = await img.blob();
-
         await uploadBytes(imageRef, bytes);
         avatarUrl = await getDownloadURL(imageRef);
         */
@@ -86,27 +85,26 @@ function ProfileSetupScreen() {
 
       await setDoc(doc(db, "users", user!.uid), {
         username: username.trim(),
-        avatarUrl, // stays null until uploads are enabled
+        avatarUrl, // null until avatar enabled
         referralCode,
         referredBy: referredBy.trim() || null,
         createdAt: serverTimestamp(),
       });
 
       Alert.alert("Success", "Profile saved!");
-        router.replace("/(tabs)");
+      router.replace("/(tabs)");
     } catch (error: any) {
       Alert.alert("Error", error.message);
     }
   };
 
-  // --- Animations (strong motion) ---
-  const titleAnim = useRef(new Animated.Value(0)).current; // 0 -> 1
+  /* ---------- Animations ---------- */
+  const titleAnim = useRef(new Animated.Value(0)).current;
   const fieldsAnim = useRef(new Animated.Value(0)).current;
   const buttonAnim = useRef(new Animated.Value(0)).current;
   const pressAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
-    // entrance sequence: title -> fields -> button
     Animated.sequence([
       Animated.timing(titleAnim, {
         toValue: 1,
@@ -127,28 +125,24 @@ function ProfileSetupScreen() {
         useNativeDriver: true,
       }),
     ]).start();
-  }, [titleAnim, fieldsAnim, buttonAnim]);
+  }, []);
 
-  const handlePressIn = () => {
-    Animated.spring(pressAnim, {
-      toValue: 0.96,
-      useNativeDriver: true,
-    }).start();
-  };
+  const pressIn = () =>
+    Animated.spring(pressAnim, { toValue: 0.96, useNativeDriver: true }).start();
 
-  const handlePressOut = () => {
+  const pressOut = () =>
     Animated.spring(pressAnim, {
       toValue: 1,
       friction: 6,
       useNativeDriver: true,
     }).start();
-  };
 
   return (
     <KeyboardAvoidingView
       behavior={Platform.select({ ios: "padding", android: undefined })}
       style={styles.container}
     >
+      {/* HEADER */}
       <Animated.View
         style={[
           styles.headerContainer,
@@ -171,6 +165,7 @@ function ProfileSetupScreen() {
         </Text>
       </Animated.View>
 
+      {/* FORM */}
       <Animated.View
         style={[
           styles.card,
@@ -187,19 +182,9 @@ function ProfileSetupScreen() {
           },
         ]}
       >
-        {/* Avatar placeholder: not clickable for now */}
-        <View style={styles.avatarRow}>
-          <View style={styles.avatarPlaceholder}>
-            <Ionicons name="person" size={44} color="#cbd5e1" />
-          </View>
-
-          <View style={styles.avatarTextWrap}>
-            <Text style={styles.avatarTitle}>Profile picture</Text>
-            <Text style={styles.avatarSubtitle}>
-              Avatar upload is disabled for now.
-            </Text>
-          </View>
-        </View>
+        {/* 🔥 AVATAR UI REMOVED COMPLETELY  
+            (logic still exists above)
+        */}
 
         {/* Username */}
         <Text style={styles.label}>Username</Text>
@@ -212,7 +197,7 @@ function ProfileSetupScreen() {
           autoCapitalize="none"
         />
 
-        {/* Referral code input */}
+        {/* Referral code */}
         <Text style={styles.label}>Referral Code (Optional)</Text>
         <TextInput
           value={referredBy}
@@ -223,13 +208,14 @@ function ProfileSetupScreen() {
           autoCapitalize="none"
         />
 
-        {/* Referral display */}
+        {/* Your referral code */}
         <Text style={styles.referralText}>
           Your Referral Code:{" "}
           <Text style={styles.referralCode}>{referralCode}</Text>
         </Text>
       </Animated.View>
 
+      {/* BUTTON */}
       <Animated.View
         style={[
           styles.footer,
@@ -249,8 +235,8 @@ function ProfileSetupScreen() {
         <Animated.View style={{ transform: [{ scale: pressAnim }] }}>
           <TouchableOpacity
             activeOpacity={0.9}
-            onPressIn={handlePressIn}
-            onPressOut={handlePressOut}
+            onPressIn={pressIn}
+            onPressOut={pressOut}
             onPress={saveProfile}
             style={styles.primaryButton}
           >
@@ -265,68 +251,26 @@ function ProfileSetupScreen() {
 const BLUE = "#377dff";
 const DARK = "#000000";
 const CARD = "#0b0b0b";
-const MUTED = "rgba(255,255,255,0.65)";
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: DARK, // pure black background per your request
+    backgroundColor: DARK,
     paddingHorizontal: 20,
     paddingTop: 26,
     paddingBottom: 24,
     justifyContent: "space-between",
   },
 
-  headerContainer: {
-    marginBottom: 8,
-  },
-  title: {
-    color: "#fff",
-    fontSize: 22,
-    fontWeight: "700",
-    marginBottom: 6,
-  },
-  subtitle: {
-    color: "rgba(255,255,255,0.6)",
-    fontSize: 13,
-  },
+  headerContainer: { marginBottom: 8 },
+  title: { color: "#fff", fontSize: 22, fontWeight: "700", marginBottom: 6 },
+  subtitle: { color: "rgba(255,255,255,0.6)", fontSize: 13 },
 
   card: {
     backgroundColor: CARD,
     borderRadius: 14,
     padding: 16,
-    // subtle shadow (android)
     elevation: 2,
-  },
-
-  avatarRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 14,
-  },
-  avatarPlaceholder: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    backgroundColor: "rgba(255,255,255,0.04)",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.06)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  avatarTextWrap: {
-    marginLeft: 12,
-    flex: 1,
-  },
-  avatarTitle: {
-    color: "#fff",
-    fontWeight: "600",
-    fontSize: 15,
-    marginBottom: 4,
-  },
-  avatarSubtitle: {
-    color: "rgba(255,255,255,0.45)",
-    fontSize: 12,
   },
 
   label: {
@@ -352,26 +296,16 @@ const styles = StyleSheet.create({
     color: "rgba(255,255,255,0.55)",
     fontSize: 13,
   },
-  referralCode: {
-    color: "#fff",
-    fontWeight: "700",
-  },
+  referralCode: { color: "#fff", fontWeight: "700" },
 
-  footer: {
-    marginTop: 20,
-  },
+  footer: { marginTop: 20 },
 
   primaryButton: {
-    backgroundColor: BLUE, // solid premium blue
+    backgroundColor: BLUE,
     paddingVertical: 14,
     borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: BLUE,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.16,
-    shadowRadius: 20,
-    elevation: 3,
   },
   primaryButtonText: {
     color: "#fff",
