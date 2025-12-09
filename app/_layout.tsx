@@ -1,10 +1,9 @@
 // app/_layout.tsx
-
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { DarkTheme, DefaultTheme, ThemeProvider } from "@react-navigation/native";
 import { useColorScheme } from "@/hooks/use-color-scheme";
-
+import { View, ActivityIndicator } from "react-native";
 import { auth, db } from "../firebase/firebaseConfig";
 import { useEffect, useState } from "react";
 import { onAuthStateChanged } from "firebase/auth";
@@ -22,10 +21,14 @@ export default function RootLayout() {
       if (user) {
         setIsAuthenticated(true);
 
-        const userRef = doc(db, "users", user.uid);
-        const userDoc = await getDoc(userRef);
-
-        setProfileCompleted(userDoc.exists() && !!userDoc.data().username);
+        try {
+          const userRef = doc(db, "users", user.uid);
+          const userDoc = await getDoc(userRef);
+          setProfileCompleted(userDoc.exists() && !!userDoc.data()?.username);
+        } catch (err) {
+          console.warn("[Auth] failed to fetch user profile", err);
+          setProfileCompleted(false);
+        }
       } else {
         setIsAuthenticated(false);
         setProfileCompleted(false);
@@ -34,25 +37,32 @@ export default function RootLayout() {
       setLoading(false);
     });
 
-    return unsubscribe;
+    return () => unsubscribe();
   }, []);
 
-  if (loading) return <StatusBar style="auto" />;
+  // 🚨 Do not render any Stack.Screen until auth state is loaded
+  if (loading) {
+  return (
+    <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+      <ActivityIndicator size="large" />
+      <StatusBar style="auto" />
+    </View>
+  );
+}
+
 
   return (
     <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
-      <Stack
-        screenOptions={{
-          headerShown: false,
-        }}
-      >
-        {isAuthenticated ? (
-          profileCompleted ? (
-            <Stack.Screen name="(tabs)" />
-          ) : (
-            <Stack.Screen name="auth/profileSetup" />
-          )
-        ) : (
+      <Stack screenOptions={{ headerShown: false }}>
+        {isAuthenticated && profileCompleted && (
+          <Stack.Screen name="(tabs)" />
+        )}
+
+        {isAuthenticated && !profileCompleted && (
+          <Stack.Screen name="auth/profileSetup" />
+        )}
+
+        {!isAuthenticated && (
           <>
             <Stack.Screen name="auth/register" />
             <Stack.Screen name="auth/login" />
@@ -60,6 +70,7 @@ export default function RootLayout() {
           </>
         )}
 
+        {/* Modal screen always present */}
         <Stack.Screen name="modal" options={{ presentation: "modal" }} />
       </Stack>
 
