@@ -1,4 +1,5 @@
-//app/auth/login.tsx
+// app/auth/login.tsx
+
 import { useState } from "react";
 import {
   View,
@@ -12,7 +13,7 @@ import {
 import { Link, useRouter } from "expo-router";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth, db, storage } from "../../firebase/firebaseConfig";
-import { doc, getDoc } from "firebase/firestore"; 
+import { doc, getDoc } from "firebase/firestore";
 
 import Animated, {
   FadeInUp,
@@ -27,9 +28,14 @@ import Animated, {
 
 import { Ionicons } from "@expo/vector-icons";
 
-export default function LoginScreen() {
-  const router = useRouter();
+/* ---------- Expo Router Wrapper (DEFAULT EXPORT) ---------- */
+export default function Login() {
+  return <LoginScreen />;
+}
 
+/* ---------- Actual Screen Implementation ---------- */
+function LoginScreen() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [passwordVisible, setPasswordVisible] = useState(false);

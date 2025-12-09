@@ -200,6 +200,11 @@ interface NewsItem {
 
 /* ---------- component ---------- */
 export default function MiningDashboard() {
+  return <MiningDashboardScreen />;
+}
+
+// ✅ This is your real screen logic
+function MiningDashboardScreen() {
   const router = useRouter();
   const {
     miningData,

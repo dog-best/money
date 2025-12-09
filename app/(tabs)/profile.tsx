@@ -14,7 +14,13 @@ import { auth, db } from "../../firebase/firebaseConfig";
 import { doc, onSnapshot } from "firebase/firestore";
 import * as Clipboard from "expo-clipboard";
 
-export default function ProfileScreen() {
+/* ---------- Expo Router Wrapper (DEFAULT EXPORT) ---------- */
+export default function Profile() {
+  return <ProfileScreen />;
+}
+
+/* ---------- Actual Screen Implementation ---------- */
+function ProfileScreen() {
   const uid = auth.currentUser?.uid;
 
   const [username, setUsername] = useState("");

@@ -1,4 +1,4 @@
-//app/auth/profilesetup
+// app/auth/profileSetup.tsx
 
 import React, { useEffect, useRef, useState } from "react";
 import {
@@ -22,11 +22,17 @@ import { Ionicons } from "@expo/vector-icons";
 // ✅ All Firebase imports come from ONE file
 import { auth, db, storage } from "../../firebase/firebaseConfig";
 
-// Firebase helpers remain the same
+// Firebase helpers
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 
+/* ---------- Expo Router Wrapper (DEFAULT EXPORT) ---------- */
 export default function ProfileSetup() {
+  return <ProfileSetupScreen />;
+}
+
+/* ---------- Actual Screen Implementation ---------- */
+function ProfileSetupScreen() {
   const router = useRouter();
 
   const [username, setUsername] = useState("");

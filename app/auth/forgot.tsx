@@ -1,4 +1,5 @@
-//app/auth/forgot.tsx
+// app/auth/forgot.tsx
+
 import React, { useState, useRef, useEffect } from "react";
 import {
   View,
@@ -21,7 +22,20 @@ import {
 import { auth, db, storage } from "../../firebase/firebaseConfig";
 import { Link } from "expo-router";
 
-export default function ForgotPasswordScreen() {
+/* ---------- Expo Router Wrapper (DEFAULT EXPORT) ---------- */
+export default function ForgotPassword() {
+  return <ForgotPasswordScreen />;
+}
+
+/* ---------- Actual Screen Implementation ---------- */
+function ForgotPasswordScreen() {
+  // ✅ keep ALL your existing state, effects, handlers, and JSX below
+  // useState(...)
+  // useEffect(...)
+  // password reset handlers
+  // return ( ... )
+
+
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [newPass, setNewPass] = useState("");

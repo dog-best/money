@@ -57,7 +57,12 @@ const SAMPLE_MARKET_ITEMS = [
   },
 ];
 
-export default function ExploreScreen() {
+export default function Explore() {
+  return <ExploreScreen />;
+}
+
+
+function ExploreScreen() {
   const user = auth.currentUser;
 
   const fade = useRef(new Animated.Value(0)).current;

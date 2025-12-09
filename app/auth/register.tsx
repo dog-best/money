@@ -1,4 +1,4 @@
-//app/auth/register.tsx
+// app/auth/register.tsx
 
 import { useState } from "react";
 import {
@@ -12,11 +12,11 @@ import {
 } from "react-native";
 
 import { createUserWithEmailAndPassword } from "firebase/auth";
-import { auth, db } from "../../firebase/firebaseConfig";   // ✅ FIXED
+import { auth, db } from "../../firebase/firebaseConfig";
 
 import { Link, useRouter } from "expo-router";
 
-import { doc, getDoc } from "firebase/firestore";            // ✅ SDK import stays
+import { doc, getDoc } from "firebase/firestore";
 
 import Animated, {
   FadeInUp,
@@ -28,8 +28,13 @@ import Animated, {
 
 import { Ionicons } from "@expo/vector-icons";
 
+/* ---------- Expo Router Wrapper (DEFAULT EXPORT) ---------- */
+export default function Register() {
+  return <RegisterScreen />;
+}
 
-export default function RegisterScreen() {
+/* ---------- Actual Screen Implementation ---------- */
+function RegisterScreen() {
   const router = useRouter();
 
   const [email, setEmail] = useState("");

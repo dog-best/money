@@ -1,6 +1,10 @@
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { DarkTheme, DefaultTheme, ThemeProvider } from "@react-navigation/native";
+import {
+  DarkTheme,
+  DefaultTheme,
+  ThemeProvider,
+} from "@react-navigation/native";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { View, ActivityIndicator } from "react-native";
 import { auth, db } from "../firebase/firebaseConfig";
@@ -36,7 +40,7 @@ export default function RootLayout() {
       setLoading(false);
     });
 
-    return () => unsubscribe();
+    return unsubscribe;
   }, []);
 
   if (loading) {
@@ -51,23 +55,30 @@ export default function RootLayout() {
   return (
     <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
       <Stack screenOptions={{ headerShown: false }}>
+
+        {/* ✅ MAIN APP */}
         {isAuthenticated && profileCompleted && (
           <Stack.Screen name="(tabs)" />
         )}
 
+        {/* ✅ PROFILE SETUP */}
         {isAuthenticated && !profileCompleted && (
           <Stack.Screen name="auth/profileSetup" />
         )}
 
+        {/* ✅ AUTH FLOW */}
         {!isAuthenticated && (
           <>
-            <Stack.Screen name="auth/register" options={{ headerShown: false }} />
-            <Stack.Screen name="auth/login" options={{ headerShown: false }} />
-            <Stack.Screen name="auth/forgot" options={{ headerShown: false }} />
+            <Stack.Screen name="auth/index" />
+            <Stack.Screen name="auth/login" />
+            <Stack.Screen name="auth/register" />
+            <Stack.Screen name="auth/forgot" />
           </>
         )}
 
+        {/* ✅ OPTIONAL MODALS */}
         <Stack.Screen name="modal" options={{ presentation: "modal" }} />
+
       </Stack>
 
       <StatusBar style="auto" />
