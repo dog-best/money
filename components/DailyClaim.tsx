@@ -14,10 +14,10 @@ import { useMining } from "../hooks/useMining";
 import { useInterstitialAd } from "react-native-google-mobile-ads";
 
 /* -----------------------------------------------
-   🔥 LAZY FIREBASE IMPORTS (no static imports)
+   🔥 LAZY FIREBASE IMPORTS — FIXED PATH
 ------------------------------------------------ */
 const getAuth = async () =>
-  (await import("firebase/auth")).getAuth();
+  (await import("../firebase/firebaseConfig")).getAuthInstance();
 
 type DailyClaimProps = {
   visible: boolean;
@@ -40,14 +40,14 @@ export default function DailyClaim({ visible, onClose }: DailyClaimProps) {
   const [uid, setUid] = useState<string | null>(null);
 
   /* -------------------------------------------------
-     🔥 Real auth state listener using lazy getAuth()
+     🔥 Correct Auth listener (uses RN instance)
   -------------------------------------------------- */
   useEffect(() => {
     let unsub: any;
 
     (async () => {
       const auth = await getAuth();
-      unsub = auth.onAuthStateChanged((u) => {
+      unsub = auth.onAuthStateChanged((u: any) => {
         setUid(u?.uid ?? null);
       });
     })();
@@ -258,7 +258,7 @@ export default function DailyClaim({ visible, onClose }: DailyClaimProps) {
   );
 }
 
-/* -------------------- STYLES (unchanged) -------------------- */
+/* -------------------- STYLES -------------------- */
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
