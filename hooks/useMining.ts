@@ -10,20 +10,14 @@ import {
 
 import { MiningData, UserProfile } from "../firebase/types";
 
-// -------------------------------
-// 🔥 Lazy Firebase loaders
-// -------------------------------
-async function getAuthInstance() {
-  const { getAuth } = await import("firebase/auth");
-  return getAuth();
-}
+import { getAuthInstance } from "../firebase/firebaseConfig";
 
+// Lazy Firestore loader (OK)
 async function getDBInstance() {
   const { getFirestore } = await import("firebase/firestore");
   return getFirestore();
 }
 
-// -------------------------------
 export function useMining() {
   const [miningData, setMiningData] = useState<MiningData | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
@@ -43,7 +37,7 @@ export function useMining() {
     let unsub: null | (() => void) = null;
 
     (async () => {
-      const auth = await getAuthInstance();
+      const auth = getAuthInstance(); // FIXED — no await
       const db = await getDBInstance();
 
       const user = auth.currentUser;
@@ -102,21 +96,21 @@ export function useMining() {
   // ACTIONS
   // --------------------------------
   const start = useCallback(async () => {
-    const auth = await getAuthInstance();
+    const auth = getAuthInstance(); // FIXED — no await
     const user = auth.currentUser;
     if (!user) return;
     await startMiningFirebase(user.uid);
   }, []);
 
   const stop = useCallback(async () => {
-    const auth = await getAuthInstance();
+    const auth = getAuthInstance(); // FIXED — no await
     const user = auth.currentUser;
     if (!user) return;
     await stopMiningFirebase(user.uid);
   }, []);
 
   const claim = useCallback(async () => {
-    const auth = await getAuthInstance();
+    const auth = getAuthInstance(); // FIXED — no await
     const user = auth.currentUser;
     if (!user) return 0;
     return await claimMiningRewardFirebase(user.uid);
