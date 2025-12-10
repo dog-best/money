@@ -1,8 +1,17 @@
+// firebaseConfig.ts
 import { initializeApp, getApps, getApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
+
+import {
+  initializeAuth,
+  getReactNativePersistence,
+} from "firebase/auth/react-native";
+
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+// Firebase config
 const firebaseConfig = {
   apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY!,
   authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN!,
@@ -12,10 +21,24 @@ const firebaseConfig = {
   appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID!,
 };
 
+// Prevent double initialization
 const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 
-// ✔ ONLY this is correct for Expo: it uses Firebase Web auth.
-export const auth = getAuth(app);
+// ✔ No _auth
+// ✔ No preload crash
+// ✔ No TS errors
+// ✔ No web auth usage
+let authInstance: any;
+
+export const auth = (() => {
+  if (!authInstance) {
+    authInstance = initializeAuth(app, {
+      persistence: getReactNativePersistence(AsyncStorage),
+    });
+  }
+  return authInstance;
+})();
+
 export const db = getFirestore(app);
 export const storage = getStorage(app);
 
