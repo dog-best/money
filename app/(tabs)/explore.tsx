@@ -1,5 +1,5 @@
-//app/(tabs)/explore.tsx
-import React, { useEffect, useRef } from "react";
+// app/(tabs)/explore.tsx
+import React, { useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -13,17 +13,18 @@ import {
   Dimensions,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { auth, db } from "../../firebase/firebaseConfig";
 
-// ✅ Default export moved here
-export default function Explore() {
-  return <ExploreScreen />;
+// ⭐ REPLACED STATIC FIREBASE IMPORTS WITH LAZY LOADERS
+async function getAuthSafe() {
+  const { getAuth } = await import("firebase/auth");
+  const { app } = await import("../../firebase/firebaseConfig");
+  return getAuth(app);
 }
 
 const { width } = Dimensions.get("window");
 const CARD_W = Math.floor((width - 48) / 2);
 
-
+// SAMPLE ITEMS
 const SAMPLE_MARKET_ITEMS = [
   {
     id: "land-001",
@@ -63,12 +64,38 @@ const SAMPLE_MARKET_ITEMS = [
   },
 ];
 
+// DEFAULT EXPORT
+export default function Explore() {
+  return <ExploreScreen />;
+}
+
 function ExploreScreen() {
-  const user = auth.currentUser;
+  // ⭐ We store the user AFTER lazy-loading Firebase Auth
+  const [userLabel, setUserLabel] = useState("Guest");
 
   const fade = useRef(new Animated.Value(0)).current;
   const slideY = useRef(new Animated.Value(10)).current;
 
+  // ⭐ Load Firebase user lazily
+  useEffect(() => {
+    (async () => {
+      try {
+        const auth = await getAuthSafe();
+        const user = auth.currentUser;
+
+        if (user) {
+          if (user.email) setUserLabel(user.email.split("@")[0]);
+          else setUserLabel(user.uid.slice(0, 6));
+        } else {
+          setUserLabel("Guest");
+        }
+      } catch (err) {
+        console.warn("Auth load failed:", err);
+      }
+    })();
+  }, []);
+
+  // ANIMATION
   useEffect(() => {
     Animated.parallel([
       Animated.timing(fade, {
@@ -187,22 +214,23 @@ function ExploreScreen() {
         </View>
 
         <View style={styles.headerRight}>
-          <TouchableOpacity onPress={() => goSoon("Wallet")} style={styles.iconBtn}>
+          <TouchableOpacity
+            onPress={() => goSoon("Wallet")}
+            style={styles.iconBtn}
+          >
             <Ionicons name="wallet" size={18} color="#fff" />
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => goSoon("Notifications")} style={styles.iconBtn}>
+
+          <TouchableOpacity
+            onPress={() => goSoon("Notifications")}
+            style={styles.iconBtn}
+          >
             <Ionicons name="notifications" size={18} color="#fff" />
           </TouchableOpacity>
 
           <View style={styles.userTag}>
             <Ionicons name="person" size={15} color="#000" />
-            <Text style={styles.userTagText}>
-              {user
-                ? user.email
-                  ? user.email.split("@")[0]
-                  : user.uid.slice(0, 6)
-                : "Guest"}
-            </Text>
+            <Text style={styles.userTagText}>{userLabel}</Text>
           </View>
         </View>
       </Animated.View>
@@ -224,15 +252,22 @@ function ExploreScreen() {
         >
           <Text style={styles.heroTitle}>Featured Drop</Text>
           <Text style={styles.heroSub}>
-            Trade rare art, tokenized land parcels, and exclusive VAD collections.
+            Trade rare art, tokenized land parcels, and exclusive VAD
+            collections.
           </Text>
 
           <View style={styles.heroActions}>
-            <TouchableOpacity style={styles.ghostBtn} onPress={() => goSoon("Explore Drops")}>
+            <TouchableOpacity
+              style={styles.ghostBtn}
+              onPress={() => goSoon("Explore Drops")}
+            >
               <Text style={styles.ghostText}>Explore</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.primaryBtn} onPress={() => goSoon("Create Listing")}>
+            <TouchableOpacity
+              style={styles.primaryBtn}
+              onPress={() => goSoon("Create Listing")}
+            >
               <Text style={styles.primaryText}>Create</Text>
             </TouchableOpacity>
           </View>
@@ -240,17 +275,26 @@ function ExploreScreen() {
 
         {/* FILTERS */}
         <View style={styles.filtersRow}>
-          <TouchableOpacity onPress={() => goSoon("Filters")} style={styles.filterPill}>
+          <TouchableOpacity
+            onPress={() => goSoon("Filters")}
+            style={styles.filterPill}
+          >
             <Ionicons name="funnel" size={14} color="#fff" />
             <Text style={styles.filterText}>Filters</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity onPress={() => goSoon("Sort")} style={styles.filterPill}>
+          <TouchableOpacity
+            onPress={() => goSoon("Sort")}
+            style={styles.filterPill}
+          >
             <Ionicons name="swap-vertical" size={14} color="#fff" />
             <Text style={styles.filterText}>Sort</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity onPress={() => goSoon("Collections")} style={styles.filterPill}>
+          <TouchableOpacity
+            onPress={() => goSoon("Collections")}
+            style={styles.filterPill}
+          >
             <Ionicons name="layers" size={14} color="#fff" />
             <Text style={styles.filterText}>Collections</Text>
           </TouchableOpacity>
@@ -263,7 +307,10 @@ function ExploreScreen() {
 
         {/* INFO CARDS */}
         <View style={styles.infoRow}>
-          <TouchableOpacity style={styles.infoCard} onPress={() => goSoon("VAD Staking")}>
+          <TouchableOpacity
+            style={styles.infoCard}
+            onPress={() => goSoon("VAD Staking")}
+          >
             <Ionicons name="trending-up" size={20} color="#5865F2" />
             <View style={{ marginLeft: 12 }}>
               <Text style={styles.infoTitle}>Stake & Earn</Text>
@@ -271,11 +318,16 @@ function ExploreScreen() {
             </View>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.infoCard} onPress={() => goSoon("Tokenization 101")}>
+          <TouchableOpacity
+            style={styles.infoCard}
+            onPress={() => goSoon("Tokenization 101")}
+          >
             <Ionicons name="cube" size={20} color="#5865F2" />
             <View style={{ marginLeft: 12 }}>
               <Text style={styles.infoTitle}>Tokenization 101</Text>
-              <Text style={styles.infoSub}>Learn how assets become tokens.</Text>
+              <Text style={styles.infoSub}>
+                Learn how assets become tokens.
+              </Text>
             </View>
           </TouchableOpacity>
         </View>
@@ -286,20 +338,19 @@ function ExploreScreen() {
   );
 }
 
-/* 🎨 COLORS */
+/* COLORS */
 const BG = "#000";
 const CARD = "#0D0D0D";
 const BLUE = "#5865F2";
 const MUTED = "rgba(255,255,255,0.55)";
 
-/* 🎨 STYLES */
+/* STYLES */
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: BG,
   },
 
-  /** HEADER **/
   header: {
     paddingHorizontal: 18,
     paddingTop: 16,
@@ -350,7 +401,6 @@ const styles = StyleSheet.create({
     paddingTop: 18,
   },
 
-  /** HERO **/
   hero: {
     backgroundColor: CARD,
     borderRadius: 16,
@@ -395,7 +445,6 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
 
-  /** FILTERS **/
   filtersRow: {
     flexDirection: "row",
     marginBottom: 14,
@@ -416,14 +465,12 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
 
-  /** GRID **/
   grid: {
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "space-between",
   },
 
-  /** MARKET CARD **/
   marketCard: {
     width: CARD_W,
     backgroundColor: CARD,
@@ -503,7 +550,6 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
 
-  /** INFO CARDS **/
   infoRow: {
     marginTop: 10,
     gap: 10,
@@ -525,4 +571,3 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
 });
-
