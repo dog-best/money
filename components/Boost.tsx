@@ -7,20 +7,18 @@ import {
   Pressable,
   StyleSheet,
 } from "react-native";
+
 import { useInterstitialAd } from "react-native-google-mobile-ads";
-import { claimBoostReward } from "../firebase/user";
 import { useMining } from "../hooks/useMining";
+import { claimBoostReward } from "../firebase/user";
+
+/* ✅ NATIVE FIREBASE ONLY */
+import { getAuthInstance } from "../firebase/firebaseConfig";
 import { Timestamp } from "firebase/firestore";
 
-/* -------------------------------------------
-      ✅ LAZY AUTH IMPORT (fixes crash)
--------------------------------------------- */
-async function lazyAuth() {
-  const { getAuth } = await import("firebase/auth");
-  const { app } = await import("../firebase/firebaseConfig");
-  return getAuth(app);
-}
-
+/* ----------------------------------------------------
+   TYPES
+---------------------------------------------------- */
 type BoostProps = {
   visible: boolean;
   onClose?: () => void;
@@ -36,7 +34,6 @@ function timeLeft(ms: number) {
 
 export default function Boost({ visible, onClose }: BoostProps) {
   const { boost } = useMining();
-
   const boostSafe = useMemo(() => boost ?? null, [boost]);
 
   const [loading, setLoading] = useState(false);
@@ -46,9 +43,9 @@ export default function Boost({ visible, onClose }: BoostProps) {
   const mountedRef = useRef(true);
   const rewardPendingRef = useRef(false);
 
-  /* -------------------------------------------
-      AD UNITS
-  -------------------------------------------- */
+  /* ----------------------------------------------------
+     📺 INTERSTITIAL AD SETUP
+  ---------------------------------------------------- */
   const adUnitId = __DEV__
     ? "ca-app-pub-3940256099942544/1033173712"
     : "YOUR_REAL_PROD_AD_UNIT_ID";
@@ -57,30 +54,25 @@ export default function Boost({ visible, onClose }: BoostProps) {
     requestNonPersonalizedAdsOnly: true,
   });
 
-  /* -------------------------------------------
-      SAFE UNMOUNT
-  -------------------------------------------- */
   useEffect(() => {
     mountedRef.current = true;
     return () => { mountedRef.current = false; };
   }, []);
 
-  /* -------------------------------------------
-      AUTO CLOSE IF LOGGED OUT
-  -------------------------------------------- */
+  /* ----------------------------------------------------
+     🔐 AUTO CLOSE WHEN LOGGED OUT
+  ---------------------------------------------------- */
   useEffect(() => {
-    (async () => {
-      const auth = await lazyAuth();
-      if (!auth.currentUser && visible) onClose?.();
-    })();
+    const auth = getAuthInstance();
+    if (!auth.currentUser && visible) onClose?.();
   }, [visible, onClose]);
 
   const usedToday = boostSafe?.usedToday ?? 0;
   const remaining = Math.max(0, 3 - usedToday);
 
-  /* -------------------------------------------
-    COOLDOWN TIMER
-  -------------------------------------------- */
+  /* ----------------------------------------------------
+     ⏱ COOLDOWN TIMER (Firebase Timestamp)
+  ---------------------------------------------------- */
   useEffect(() => {
     if (!boostSafe?.lastReset) {
       setCooldownMs(0);
@@ -90,8 +82,8 @@ export default function Boost({ visible, onClose }: BoostProps) {
     let lastMs = 0;
 
     try {
-      if ((boostSafe.lastReset as any)?.toMillis) {
-        lastMs = (boostSafe.lastReset as Timestamp).toMillis();
+      if (boostSafe.lastReset instanceof Timestamp) {
+        lastMs = boostSafe.lastReset.toMillis();
       } else {
         const n = Number(boostSafe.lastReset);
         lastMs = Number.isFinite(n) ? n : 0;
@@ -111,11 +103,12 @@ export default function Boost({ visible, onClose }: BoostProps) {
     update();
     const iv = setInterval(update, 30000);
     return () => clearInterval(iv);
+
   }, [boostSafe?.lastReset]);
 
-  /* -------------------------------------------
-      REWARD ONLY AFTER AD CLOSES
-  -------------------------------------------- */
+  /* ----------------------------------------------------
+     🎁 GIVE REWARD AFTER AD CLOSES
+  ---------------------------------------------------- */
   useEffect(() => {
     if (!isClosed || !rewardPendingRef.current) return;
 
@@ -123,7 +116,7 @@ export default function Boost({ visible, onClose }: BoostProps) {
 
     (async () => {
       try {
-        const auth = await lazyAuth();
+        const auth = getAuthInstance();
         const user = auth.currentUser;
         if (!user || !mountedRef.current) return;
 
@@ -137,7 +130,7 @@ export default function Boost({ visible, onClose }: BoostProps) {
           setMessage(`+${reward.toFixed(1)} VAD added!`);
         }
       } catch (err) {
-        console.error("Boost error:", err);
+        console.error("Boost reward error:", err);
         if (mountedRef.current) setMessage("Boost failed.");
       } finally {
         if (mountedRef.current) setLoading(false);
@@ -145,11 +138,11 @@ export default function Boost({ visible, onClose }: BoostProps) {
     })();
   }, [isClosed]);
 
-  /* -------------------------------------------
-      BUTTON HANDLER
-  -------------------------------------------- */
+  /* ----------------------------------------------------
+     ▶️ BUTTON ACTION — WATCH AD
+  ---------------------------------------------------- */
   const handleWatchAd = async () => {
-    const auth = await lazyAuth();
+    const auth = getAuthInstance();
 
     if (!auth.currentUser) {
       setMessage("Login required.");
@@ -170,6 +163,9 @@ export default function Boost({ visible, onClose }: BoostProps) {
     show();
   };
 
+  /* ----------------------------------------------------
+     UI LABEL
+  ---------------------------------------------------- */
   const progressLabel = useMemo(() => {
     return remaining === 0
       ? `Next reset in ${timeLeft(cooldownMs)}`
