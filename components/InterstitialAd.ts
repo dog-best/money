@@ -1,44 +1,62 @@
 // components/InterstitialAd.ts
-import {
-  InterstitialAd,
-  AdEventType,
-  TestIds,
-} from "react-native-google-mobile-ads";
+let _adsModule: any | null = null;
 
-const unitId = __DEV__
-  ? TestIds.INTERSTITIAL
-  : "ca-app-pub-4533962949749202/2761859275"; // ← YOUR REAL ID
+// Lazy loader for google-mobile-ads
+async function loadAdsModule() {
+  if (_adsModule) return _adsModule;
+  _adsModule = await import("react-native-google-mobile-ads");
+  return _adsModule;
+}
 
-export function showInterstitial() {
-  const interstitial = InterstitialAd.createForAdRequest(unitId);
+export async function showInterstitial(): Promise<void> {
+  try {
+    const ads = await loadAdsModule();
 
-  return new Promise<void>((resolve, reject) => {
-    const loadedListener = interstitial.addAdEventListener(
-      AdEventType.LOADED,
-      () => interstitial.show()
-    );
+    const { InterstitialAd, AdEventType, TestIds } = ads;
 
-    const errorListener = interstitial.addAdEventListener(
-      AdEventType.ERROR,
-      (error) => {
-        console.log("Interstitial error:", error);
-        loadedListener();
-        errorListener();
-        closedListener();
-        reject(error);
-      }
-    );
+    const unitId = __DEV__
+      ? TestIds.INTERSTITIAL
+      : "ca-app-pub-4533962949749202/2761859275"; // ← YOUR REAL ID
 
-    const closedListener = interstitial.addAdEventListener(
-      AdEventType.CLOSED,
-      () => {
-        loadedListener();
-        errorListener();
-        closedListener();
-        resolve();
-      }
-    );
+    const interstitial = InterstitialAd.createForAdRequest(unitId);
 
-    interstitial.load();
-  });
+    return new Promise<void>((resolve, reject) => {
+      const loaded = interstitial.addAdEventListener(
+        AdEventType.LOADED,
+        () => {
+          try {
+            interstitial.show();
+          } catch (e) {
+            reject(e);
+          }
+        }
+      );
+
+      const error = interstitial.addAdEventListener(
+        AdEventType.ERROR,
+        (err: any) => {
+          console.log("[Interstitial] Load error", err);
+          loaded();
+          error();
+          closed();
+          reject(err);
+        }
+      );
+
+      const closed = interstitial.addAdEventListener(
+        AdEventType.CLOSED,
+        () => {
+          loaded();
+          error();
+          closed();
+          resolve();
+        }
+      );
+
+      interstitial.load();
+    });
+  } catch (err) {
+    console.warn("Failed to load ads module:", err);
+    throw err;
+  }
 }
