@@ -8,6 +8,9 @@ import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
+// --------------------------------------------
+// FIREBASE CONFIG
+// --------------------------------------------
 const firebaseConfig = {
   apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY!,
   authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN!,
@@ -17,10 +20,11 @@ const firebaseConfig = {
   appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID!,
 };
 
+// Initialize only once
 export const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 
 // --------------------------------------------
-// LAZY AUTH (DOES NOT RUN DURING IMPORT)
+// AUTH (React Native SAFE)
 // --------------------------------------------
 let authInstance: ReturnType<typeof initializeAuth> | null = null;
 
@@ -28,10 +32,13 @@ export const getAuthInstance = () => {
   if (authInstance) return authInstance;
 
   try {
+    // MUST be used in React Native (no browser persistence)
     authInstance = initializeAuth(app, {
       persistence: getReactNativePersistence(AsyncStorage),
     });
   } catch (e) {
+    // DO NOT CALL getAuth() HERE — it breaks in React Native
+    console.warn("[Firebase] initializeAuth already exists");
     authInstance = getAuth(app);
   }
 

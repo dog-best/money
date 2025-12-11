@@ -8,8 +8,16 @@ import {
   StyleSheet,
 } from "react-native";
 
-import { useInterstitialAd } from "react-native-google-mobile-ads";
 import { useMining } from "../hooks/useMining";
+
+/* ----------------------------------------------------
+   LAZY AD IMPORT (TypeScript-safe)
+---------------------------------------------------- */
+function lazyUseInterstitialAd(adUnitId: string, options: any) {
+  return import("react-native-google-mobile-ads").then((mod) =>
+    mod.useInterstitialAd(adUnitId, options)
+  );
+}
 
 /* ----------------------------------------------------
    TYPES
@@ -29,7 +37,6 @@ function timeLeft(ms: number) {
 
 /* ----------------------------------------------------
    LAZY HELPERS
-   (no static firebase imports here)
 ---------------------------------------------------- */
 async function lazyGetAuthInstance() {
   const mod = await import("../firebase/firebaseConfig");
@@ -38,25 +45,17 @@ async function lazyGetAuthInstance() {
 
 async function lazyClaimBoostReward(uid: string) {
   const mod = await import("../firebase/user");
-  // export name in your file: claimBoostReward
   return mod.claimBoostReward(uid);
 }
 
 async function parseLastResetToMs(value: any): Promise<number> {
-  // Try firebase Timestamp shape (has toMillis)
   try {
     if (value && typeof value.toMillis === "function") {
       return value.toMillis();
     }
-  } catch {
-    // ignore
-  }
-
-  // If it's numeric-like
+  } catch {}
   const n = Number(value);
-  if (Number.isFinite(n)) return n;
-
-  return 0;
+  return Number.isFinite(n) ? n : 0;
 }
 
 /* ----------------------------------------------------
@@ -65,10 +64,8 @@ async function parseLastResetToMs(value: any): Promise<number> {
 export default function Boost({ visible, onClose }: BoostProps) {
   const { boost } = useMining();
 
-  // Defensive: snapshot boost object
   const boostSafe = useMemo(() => {
     if (!boost) return null;
-    // expected fields: usedToday, lastReset, balance
     return {
       usedToday: typeof boost.usedToday === "number" ? boost.usedToday : 0,
       lastReset: boost.lastReset ?? null,
@@ -93,7 +90,7 @@ export default function Boost({ visible, onClose }: BoostProps) {
   }, [loading]);
 
   /* ----------------------------------------------------
-     AD SETUP (useMemo so adUnitId is stable)
+       LAZY AD SETUP
   ---------------------------------------------------- */
   const adUnitId = useMemo(
     () =>
@@ -103,12 +100,34 @@ export default function Boost({ visible, onClose }: BoostProps) {
     []
   );
 
-  const { isLoaded, isClosed, load, show } = useInterstitialAd(adUnitId, {
-    requestNonPersonalizedAdsOnly: true,
-  });
+  const [adHook, setAdHook] = useState<any>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const hook = await lazyUseInterstitialAd(adUnitId, {
+          requestNonPersonalizedAdsOnly: true,
+        });
+        if (!cancelled) setAdHook(hook);
+      } catch (err) {
+        console.warn("Failed to lazy load ad hook", err);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [adUnitId]);
+
+  const isLoaded = adHook?.isLoaded;
+  const isClosed = adHook?.isClosed;
+  const load = adHook?.load ?? (() => {});
+  const show = adHook?.show ?? (() => {});
 
   /* ----------------------------------------------------
-     AUTO CLOSE WHEN LOGGED OUT (lazy auth)
+     AUTO CLOSE WHEN LOGGED OUT
   ---------------------------------------------------- */
   useEffect(() => {
     let cancelled = false;
@@ -116,11 +135,8 @@ export default function Boost({ visible, onClose }: BoostProps) {
       if (!visible) return;
       try {
         const auth = await lazyGetAuthInstance();
-        if (cancelled) return;
-        if (!auth?.currentUser) onClose?.();
-      } catch {
-        // ignore auth errors here
-      }
+        if (!cancelled && !auth?.currentUser) onClose?.();
+      } catch {}
     })();
     return () => {
       cancelled = true;
@@ -135,12 +151,7 @@ export default function Boost({ visible, onClose }: BoostProps) {
     let lastMs = 0;
 
     (async () => {
-      try {
-        lastMs = await parseLastResetToMs(boostSafe?.lastReset);
-      } catch {
-        lastMs = 0;
-      }
-
+      lastMs = await parseLastResetToMs(boostSafe?.lastReset);
       const DAY = 86400000;
 
       const update = () => {
@@ -163,22 +174,18 @@ export default function Boost({ visible, onClose }: BoostProps) {
   ---------------------------------------------------- */
   useEffect(() => {
     if (visible) {
-      // attempt to load ad (idempotent)
       try {
         load();
-      } catch (e) {
-        // ignore
-      }
+      } catch {}
     }
   }, [visible, load]);
 
   /* ----------------------------------------------------
-     WHEN AD CLOSES -> GRANT REWARD (lazy claim)
+     AD CLOSED → GRANT REWARD
   ---------------------------------------------------- */
   useEffect(() => {
     if (!isClosed || !rewardPendingRef.current) return;
 
-    // reset pending flag immediately to avoid duplicates
     rewardPendingRef.current = false;
 
     (async () => {
@@ -212,13 +219,12 @@ export default function Boost({ visible, onClose }: BoostProps) {
   }, [isClosed]);
 
   /* ----------------------------------------------------
-     HANDLE WATCH AD BUTTON
+     HANDLE WATCH AD
   ---------------------------------------------------- */
   const usedToday = boostSafe?.usedToday ?? 0;
   const remaining = Math.max(0, 3 - usedToday);
 
   const handleWatchAd = async () => {
-    // Prevent double invocation
     if (loadingRef.current) return;
 
     setMessage("");
@@ -245,33 +251,24 @@ export default function Boost({ visible, onClose }: BoostProps) {
         return;
       }
 
-      // If not loaded, request load and wait for load; don't call show() immediately
       if (!isLoaded) {
-        // attempt to load and wait a short time
         try {
           load();
-          // give it a small grace period to load before returning control
-          // user will tap again when ready (keeps UI responsive)
-        } catch {
-          // ignore load errors
-        }
+        } catch {}
         setLoading(false);
         loadingRef.current = false;
         return;
       }
 
-      // show ad (native)
       try {
         show();
-      } catch (err) {
-        // show failed: clear pending and inform user
+      } catch {
         rewardPendingRef.current = false;
         setMessage("Failed to show ad.");
         setLoading(false);
         loadingRef.current = false;
       }
     } catch (err) {
-      console.error("handleWatchAd error:", err);
       rewardPendingRef.current = false;
       setMessage("Ad failed to start.");
       setLoading(false);
@@ -344,7 +341,7 @@ export default function Boost({ visible, onClose }: BoostProps) {
 }
 
 /* -------------------------------------------
-      STYLES (kept as you provided)
+      STYLES
 -------------------------------------------- */
 const styles = StyleSheet.create({
   overlay: {
