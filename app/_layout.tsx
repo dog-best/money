@@ -24,18 +24,20 @@ export default function RootLayout() {
   const [profileCompleted, setProfileCompleted] = useState(false);
 
   useEffect(() => {
-    let unsubscribe: any;
+    let unsubscribe: (() => void) | null = null;
+    let cancelled = false;
 
     (async () => {
-      // --------------------------------------------
-      // LAZY LOAD FIREBASE CONFIG (SAFE)
-      // --------------------------------------------
-      const { getAuthInstance, db } = await import("../firebase/firebaseConfig");
+      try {
+        // Lazy-load Firebase config
+        const { getAuthInstance, db } = await import("../firebase/firebaseConfig");
+        const auth = getAuthInstance();
 
-      const auth = getAuthInstance();
+        if (cancelled) return;
 
-      unsubscribe = auth.onAuthStateChanged(
-        async (user: FirebaseUser | null) => {
+        unsubscribe = auth.onAuthStateChanged(async (user: FirebaseUser | null) => {
+          if (cancelled) return;
+
           if (user) {
             setIsAuthenticated(true);
 
@@ -56,16 +58,22 @@ export default function RootLayout() {
           }
 
           setLoading(false);
-        }
-      );
+        });
+      } catch (err) {
+        console.warn("[RootLayout] Firebase load failed:", err);
+        setLoading(false);
+        setIsAuthenticated(false);
+        setProfileCompleted(false);
+      }
     })();
 
-    return () => unsubscribe && unsubscribe();
+    return () => {
+      cancelled = true;
+      if (unsubscribe) unsubscribe();
+    };
   }, []);
 
-  // --------------------------------------------------
-  // LOADING INITIAL SCREEN
-  // --------------------------------------------------
+  // Loading screen
   if (loading) {
     return (
       <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
@@ -75,22 +83,15 @@ export default function RootLayout() {
     );
   }
 
-  // --------------------------------------------------
-  // NAVIGATION FLOW
-  // --------------------------------------------------
+  // Navigation flow
   return (
     <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
       <Stack screenOptions={{ headerShown: false }}>
-        {isAuthenticated && profileCompleted && (
-          <Stack.Screen name="(tabs)" />
-        )}
-
+        {isAuthenticated && profileCompleted && <Stack.Screen name="(tabs)" />}
         {isAuthenticated && !profileCompleted && (
           <Stack.Screen name="(auth)/profileSetup" />
         )}
-
         {!isAuthenticated && <Stack.Screen name="(auth)" />}
-
         <Stack.Screen name="modal" options={{ presentation: "modal" }} />
       </Stack>
 

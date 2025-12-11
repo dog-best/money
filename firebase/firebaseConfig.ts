@@ -1,16 +1,10 @@
+// firebase/firebaseConfig.ts
 import { initializeApp, getApps, getApp } from "firebase/app";
-import {
-  initializeAuth,
-  getReactNativePersistence,
-  getAuth,
-} from "firebase/auth/react-native";
+import { initializeAuth, getReactNativePersistence } from "firebase/auth/react-native";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-// --------------------------------------------
-// FIREBASE CONFIG
-// --------------------------------------------
 const firebaseConfig = {
   apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY!,
   authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN!,
@@ -20,31 +14,27 @@ const firebaseConfig = {
   appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID!,
 };
 
-// Initialize only once
+// Initialize Firebase App only once
 export const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 
-// --------------------------------------------
-// AUTH (React Native SAFE)
-// --------------------------------------------
+// -----------------------------
+// Safe React Native Auth
+// -----------------------------
 let authInstance: ReturnType<typeof initializeAuth> | null = null;
 
-export const getAuthInstance = () => {
+export const getAuthInstance = (): ReturnType<typeof initializeAuth> => {
   if (authInstance) return authInstance;
 
-  try {
-    // MUST be used in React Native (no browser persistence)
-    authInstance = initializeAuth(app, {
-      persistence: getReactNativePersistence(AsyncStorage),
-    });
-  } catch (e) {
-    // DO NOT CALL getAuth() HERE — it breaks in React Native
-    console.warn("[Firebase] initializeAuth already exists");
-    authInstance = getAuth(app);
-  }
+  // Only initialize once
+  if (!app) throw new Error("Firebase App is not initialized");
+
+  authInstance = initializeAuth(app, {
+    persistence: getReactNativePersistence(AsyncStorage),
+  });
 
   return authInstance;
 };
 
-// --------------------------------------------
+// -----------------------------
 export const db = getFirestore(app);
 export const storage = getStorage(app);
