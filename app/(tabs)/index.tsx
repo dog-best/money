@@ -1,4 +1,4 @@
-//app/(tabs)/index.tsx
+// app/(tabs)/index.tsx
 import React, { useEffect, useRef, useState, useMemo } from "react";
 import {
   View,
@@ -27,18 +27,10 @@ import WatchEarn from "../../components/WatchEarn";
 import AdBanner from "../../components/AdBanner";
 
 /* ============================================================
-   🔥 LAZY FIREBASE HELPERS (Fixes all crashes)
-=============================================================== */
-async function getAuthSafe() {
-  const { getAuth } = await import("firebase/auth");
-  const { app } = await import("../../firebase/firebaseConfig");
-  return getAuth(app);
-}
-
-async function getAppSafe() {
-  const { app } = await import("../../firebase/firebaseConfig");
-  return app;
-}
+   Use native-safe firebase exports (no dynamic import)
+   - firebase/firebaseConfig must export `app` and `getAuthInstance`
+   ============================================================ */
+import { app, getAuthInstance } from "../../firebase/firebaseConfig";
 
 /* ============================================================
    MAIN COMPONENT
@@ -287,7 +279,44 @@ export default function MiningDashboard() {
   const [isClaiming, setIsClaiming] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
 
+  // New: auth/app readiness guard
+  const [authReady, setAuthReady] = useState(false);
+
   const perSecond = miningActive ? DAILY_MAX / DAY_SECONDS : 0;
+
+  /* ============================================================
+      Ensure auth/app is initialized (native-safe)
+      - we attempt initialization on mount
+      - if initialization fails we retry a couple times before showing UI
+  =============================================================== */
+  useEffect(() => {
+    let mounted = true;
+    let attempts = 0;
+    const maxAttempts = 4;
+    const tryInit = () => {
+      attempts += 1;
+      try {
+        // getAuthInstance initializes auth (native initializeAuth)
+        // This is synchronous in your firebaseConfig implementation
+        getAuthInstance();
+        if (mounted) setAuthReady(true);
+      } catch (e) {
+        console.warn("[AuthInit] attempt", attempts, "failed", e);
+        if (attempts < maxAttempts) {
+          // retry shortly (user-initiated components are allowed to wait)
+          setTimeout(tryInit, 250 * attempts);
+        } else {
+          if (mounted) setAuthReady(false);
+        }
+      }
+    };
+
+    tryInit();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   /* ============================================================
       Animated Balance
@@ -411,12 +440,24 @@ export default function MiningDashboard() {
   });
 
   /* ============================================================
-      Start / Stop (lazy auth)
+      Start / Stop (use getAuthInstance - guard with authReady)
   =============================================================== */
   const handleStartStop = async () => {
-    const auth = await getAuthSafe();
-    const user = auth.currentUser;
+    if (!authReady) {
+      Alert.alert("Please wait", "Initializing app. Try again in a moment.");
+      return;
+    }
 
+    let auth;
+    try {
+      auth = getAuthInstance();
+    } catch (e) {
+      console.warn("[handleStartStop] getAuthInstance failed", e);
+      Alert.alert("Error", "Auth not available.");
+      return;
+    }
+
+    const user = auth.currentUser;
     if (!user) return router.push("/(auth)/login");
 
     try {
@@ -434,12 +475,24 @@ export default function MiningDashboard() {
   };
 
   /* ============================================================
-      Claim (lazy auth)
+      Claim (use getAuthInstance - guard with authReady)
   =============================================================== */
   const handleClaim = async () => {
-    const auth = await getAuthSafe();
-    const user = auth.currentUser;
+    if (!authReady) {
+      Alert.alert("Please wait", "Initializing app. Try again in a moment.");
+      return;
+    }
 
+    let auth;
+    try {
+      auth = getAuthInstance();
+    } catch (e) {
+      console.warn("[handleClaim] getAuthInstance failed", e);
+      Alert.alert("Error", "Auth not available.");
+      return;
+    }
+
+    const user = auth.currentUser;
     if (!user) return router.push("/(auth)/login");
 
     try {
@@ -455,41 +508,47 @@ export default function MiningDashboard() {
   };
 
   /* ============================================================
-      News Feed (lazy app)
+      News Feed (only attach after app/auth is ready)
   =============================================================== */
   useEffect(() => {
+    if (!authReady) return; // <<-- important: don't attach DB listener until ready
+
     let unsub: any = null;
     let mounted = true;
 
     (async () => {
-      const app = await getAppSafe();
-      const db = getDatabase(app);
-      const newsRef = dbRef(db, "news");
+      try {
+        const db = getDatabase(app);
+        const newsRef = dbRef(db, "news");
 
-      unsub = onValue(
-        newsRef,
-        (snap) => {
-          if (!mounted) return;
+        unsub = onValue(
+          newsRef,
+          (snap) => {
+            if (!mounted) return;
 
-          const value = snap.val();
-          if (!value) return setNews([]);
+            const value = snap.val();
+            if (!value) return setNews([]);
 
-          try {
-            const arr: NewsItem[] = Object.keys(value)
-              .map((k) => ({
-                id: k,
-                ...(value[k] as Omit<NewsItem, "id">),
-              }))
-              .sort((a, b) => (b.timestamp ?? 0) - (a.timestamp ?? 0));
+            try {
+              const arr: NewsItem[] = Object.keys(value)
+                .map((k) => ({
+                  id: k,
+                  ...(value[k] as Omit<NewsItem, "id">),
+                }))
+                .sort((a, b) => (b.timestamp ?? 0) - (a.timestamp ?? 0));
 
-            setNews(arr);
-          } catch (e) {
-            console.warn("[NewsListener] error", e);
-            setNews([]);
-          }
-        },
-        () => mounted && setNews([])
-      );
+              setNews(arr);
+            } catch (e) {
+              console.warn("[NewsListener] error", e);
+              setNews([]);
+            }
+          },
+          () => mounted && setNews([])
+        );
+      } catch (e) {
+        console.warn("[NewsListener] setup failed", e);
+        setNews([]);
+      }
     })();
 
     return () => {
@@ -498,12 +557,12 @@ export default function MiningDashboard() {
         unsub && unsub();
       } catch {}
     };
-  }, []);
+  }, [authReady]);
 
   /* ============================================================
       Loading UI
   =============================================================== */
-  if (isLoading) {
+  if (isLoading || !authReady) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#8B5CF6" />
@@ -781,3 +840,4 @@ function timeAgoFromUnix(ts: number) {
   if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
   return `${Math.floor(diff / 86400)}d ago`;
 }
+
