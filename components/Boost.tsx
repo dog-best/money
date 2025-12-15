@@ -6,10 +6,12 @@ import {
   Modal,
   Pressable,
   StyleSheet,
+  Platform,
 } from "react-native";
 
 import { supabase } from "../supabase/client";
 import { useMining } from "../hooks/useMining";
+import { claimBoostReward } from "../services/user";
 
 /* ----------------------------------------------------
    TYPES
@@ -19,6 +21,9 @@ type BoostProps = {
   onClose?: () => void;
 };
 
+/* ----------------------------------------------------
+   HELPERS
+---------------------------------------------------- */
 function timeLeft(ms: number) {
   if (!ms || ms <= 0) return "0h 0m";
   const s = Math.floor(ms / 1000);
@@ -27,17 +32,10 @@ function timeLeft(ms: number) {
   return `${h}h ${m}m`;
 }
 
-/* ----------------------------------------------------
-   SUPABASE HELPERS
----------------------------------------------------- */
 async function getCurrentUser() {
-  const { data, error } = await supabase.auth.getUser();
-  if (error || !data?.user) return null;
-  return data.user;
+  const { data } = await supabase.auth.getUser();
+  return data?.user ?? null;
 }
-
-import { claimBoostReward } from "../services/user";
-
 
 async function parseLastResetToMs(value: any): Promise<number> {
   if (!value) return 0;
@@ -46,12 +44,33 @@ async function parseLastResetToMs(value: any): Promise<number> {
 }
 
 /* ----------------------------------------------------
-   AD IMPORT
+   SAFE ADS WRAPPER (NO CONDITIONAL HOOKS)
 ---------------------------------------------------- */
-import {
-  useInterstitialAd,
-  TestIds,
-} from "react-native-google-mobile-ads";
+const IS_NATIVE = Platform.OS === "android" || Platform.OS === "ios";
+
+let Ads: any = null;
+try {
+  Ads = require("react-native-google-mobile-ads");
+} catch {
+  Ads = null;
+}
+
+function useSafeInterstitialAd(adUnitId: string) {
+  // 🚫 Expo Go / Web → NO native module
+  if (!IS_NATIVE || !Ads?.useInterstitialAd) {
+    return {
+      isLoaded: false,
+      isClosed: false,
+      load: () => {},
+      show: () => {},
+    };
+  }
+
+  // ✅ Hook is ALWAYS called in native environments
+  return Ads.useInterstitialAd(adUnitId, {
+    requestNonPersonalizedAdsOnly: true,
+  });
+}
 
 /* ----------------------------------------------------
    COMPONENT
@@ -60,14 +79,13 @@ export default function Boost({ visible, onClose }: BoostProps) {
   const { boost } = useMining();
 
   const boostSafe = useMemo(() => {
-  if (!boost) return null;
-  return {
-    usedToday: boost.used_today,
-    lastReset: boost.last_reset,
-    balance: boost.balance,
-  };
-}, [boost]);
-
+    if (!boost) return null;
+    return {
+      usedToday: boost.used_today,
+      lastReset: boost.last_reset,
+      balance: boost.balance,
+    };
+  }, [boost]);
 
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
@@ -86,18 +104,18 @@ export default function Boost({ visible, onClose }: BoostProps) {
   }, [loading]);
 
   /* ----------------------------------------------------
-       AD SETUP
+     AD SETUP (SAFE)
   ---------------------------------------------------- */
-  const adUnitId = __DEV__
-    ? TestIds.INTERSTITIAL
-    : "YOUR_REAL_PROD_AD_UNIT_ID";
+  const adUnitId =
+    __DEV__ && Ads?.TestIds
+      ? Ads.TestIds.INTERSTITIAL
+      : "YOUR_REAL_PROD_AD_UNIT_ID";
 
-  const { isLoaded, isClosed, load, show } = useInterstitialAd(adUnitId, {
-    requestNonPersonalizedAdsOnly: true,
-  });
+  const { isLoaded, isClosed, load, show } =
+    useSafeInterstitialAd(adUnitId);
 
   /* ----------------------------------------------------
-     AUTO CLOSE WHEN LOGGED OUT
+     AUTO CLOSE IF LOGGED OUT
   ---------------------------------------------------- */
   useEffect(() => {
     let cancelled = false;
@@ -113,42 +131,42 @@ export default function Boost({ visible, onClose }: BoostProps) {
     };
   }, [visible, onClose]);
 
-/* ----------------------------------------------------
-   COOLDOWN TIMER
----------------------------------------------------- */
-useEffect(() => {
-  let iv: ReturnType<typeof setInterval> | null = null;  // ✅ FIXED
-  let lastMs = 0;
+  /* ----------------------------------------------------
+     COOLDOWN TIMER
+  ---------------------------------------------------- */
+  useEffect(() => {
+    let iv: ReturnType<typeof setInterval> | null = null;
 
-  (async () => {
-    lastMs = await parseLastResetToMs(boostSafe?.lastReset
-); 
+    (async () => {
+      const lastMs = await parseLastResetToMs(
+        boostSafe?.lastReset
+      );
 
-// also ensure snake_case
-    const DAY = 86400000;
+      const DAY = 86400000;
 
-    const update = () => {
-      if (!mountedRef.current) return;
-      const remain = Math.max(0, DAY - (Date.now() - lastMs));
-      setCooldownMs(remain);
+      const update = () => {
+        if (!mountedRef.current) return;
+        const remain = Math.max(
+          0,
+          DAY - (Date.now() - lastMs)
+        );
+        setCooldownMs(remain);
+      };
+
+      update();
+      iv = setInterval(update, 30000);
+    })();
+
+    return () => {
+      if (iv) clearInterval(iv);
     };
-
-    update();
-    iv = setInterval(update, 30000);
-  })();
-
-  return () => {
-    if (iv) clearInterval(iv);
-  };
-}, [ boostSafe?.lastReset]);
+  }, [boostSafe?.lastReset]);
 
   /* ----------------------------------------------------
      LOAD AD WHEN VISIBLE
   ---------------------------------------------------- */
   useEffect(() => {
-    if (visible) {
-      load();
-    }
+    if (visible) load();
   }, [visible, load]);
 
   /* ----------------------------------------------------
@@ -162,28 +180,26 @@ useEffect(() => {
     (async () => {
       try {
         const user = await getCurrentUser();
-        if (!user || !mountedRef.current) {
-          if (mountedRef.current) {
-            setMessage("Not authenticated.");
-            setLoading(false);
-          }
-          return;
-        }
+        if (!user || !mountedRef.current) return;
 
         const reward = await claimBoostReward(user.id);
 
         if (!mountedRef.current) return;
 
-        if (reward === 0) {
-          setMessage("Boost limit reached.");
-        } else {
-          setMessage(`+${reward.toFixed(1)} VAD added!`);
-        }
+        setMessage(
+          reward === 0
+            ? "Boost limit reached."
+            : `+${reward.toFixed(1)} VAD added!`
+        );
       } catch (err) {
         console.error("Boost reward error:", err);
-        if (mountedRef.current) setMessage("Boost failed.");
+        if (mountedRef.current)
+          setMessage("Boost failed.");
       } finally {
-        if (mountedRef.current) setLoading(false);
+        if (mountedRef.current) {
+          setLoading(false);
+          loadingRef.current = false;
+        }
       }
     })();
   }, [isClosed]);
@@ -202,42 +218,36 @@ useEffect(() => {
     loadingRef.current = true;
     rewardPendingRef.current = true;
 
-    try {
-      const user = await getCurrentUser();
-      if (!user) {
-        setMessage("Login required.");
-        setLoading(false);
-        loadingRef.current = false;
-        rewardPendingRef.current = false;
-        return;
-      }
-
-      if (remaining <= 0) {
-        setMessage("No boosts left today.");
-        setLoading(false);
-        loadingRef.current = false;
-        rewardPendingRef.current = false;
-        return;
-      }
-
-      if (!isLoaded) {
-        load();
-        setLoading(false);
-        loadingRef.current = false;
-        return;
-      }
-
-      try {
-        show();
-      } catch {
-        rewardPendingRef.current = false;
-        setMessage("Failed to show ad.");
-        setLoading(false);
-        loadingRef.current = false;
-      }
-    } catch (err) {
+    const user = await getCurrentUser();
+    if (!user) {
+      setMessage("Login required.");
+      setLoading(false);
+      loadingRef.current = false;
       rewardPendingRef.current = false;
-      setMessage("Ad failed to start.");
+      return;
+    }
+
+    if (remaining <= 0) {
+      setMessage("No boosts left today.");
+      setLoading(false);
+      loadingRef.current = false;
+      rewardPendingRef.current = false;
+      return;
+    }
+
+    if (!isLoaded) {
+      load();
+      setLoading(false);
+      loadingRef.current = false;
+      rewardPendingRef.current = false;
+      return;
+    }
+
+    try {
+      show();
+    } catch {
+      rewardPendingRef.current = false;
+      setMessage("Failed to show ad.");
       setLoading(false);
       loadingRef.current = false;
     }
@@ -250,6 +260,8 @@ useEffect(() => {
   }, [remaining, cooldownMs]);
 
   if (!visible) return null;
+
+
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
@@ -307,9 +319,7 @@ useEffect(() => {
   );
 }
 
-/* -------------------------------------------
-      STYLES
--------------------------------------------- */
+//styles//
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
