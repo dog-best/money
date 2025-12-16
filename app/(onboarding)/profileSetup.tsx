@@ -1,4 +1,4 @@
-// app/(auth)/profileSetup.tsx
+// app/(onboarding)/profileSetup.tsx
 
 import React, { useEffect, useRef, useState } from "react";
 import {
@@ -7,18 +7,16 @@ import {
   TextInput,
   TouchableOpacity,
   Alert,
-  StyleSheet,
   KeyboardAvoidingView,
   Platform,
   Animated,
   Easing,
   Image,
+  StyleSheet,
 } from "react-native";
 
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
-
-// 🔥 Supabase client
 import { supabase } from "../../supabase/client";
 
 /* ---------- Expo Router Wrapper ---------- */
@@ -26,21 +24,24 @@ export default function ProfileSetup() {
   return <ProfileSetupScreen />;
 }
 
-/* ---------- Actual Screen Implementation ---------- */
+/* ---------- Screen Implementation ---------- */
 function ProfileSetupScreen() {
   const router = useRouter();
 
+  /* ------------------------------------------------------------------
+     STATE
+  ------------------------------------------------------------------ */
   const [username, setUsername] = useState("");
   const [avatar, setAvatar] = useState<string | null>(null);
   const [referredBy, setReferredBy] = useState("");
   const [referralCode, setReferralCode] = useState("");
+  const [loading, setLoading] = useState(false);
 
   /* ------------------------------------------------------------------
-     REFERRAL CODE GENERATION (UNIQUE)
+     REFERRAL CODE (DISPLAY ONLY)
   ------------------------------------------------------------------ */
-  const generateReferralCode = () => {
-    return Math.random().toString(36).substring(2, 8).toUpperCase();
-  };
+  const generateReferralCode = () =>
+    Math.random().toString(36).substring(2, 8).toUpperCase();
 
   useEffect(() => {
     setReferralCode(generateReferralCode());
@@ -67,7 +68,7 @@ function ProfileSetupScreen() {
   };
 
   /* ------------------------------------------------------------------
-     UPLOAD AVATAR TO SUPABASE STORAGE
+     UPLOAD AVATAR
   ------------------------------------------------------------------ */
   const uploadAvatar = async (userId: string) => {
     if (!avatar) return null;
@@ -77,13 +78,13 @@ function ProfileSetupScreen() {
       const path = `avatars/${userId}.${ext}`;
 
       const img = await fetch(avatar);
-      const bytes = await img.blob();
+      const blob = await img.blob();
 
-      const { error: uploadErr } = await supabase.storage
+      const { error } = await supabase.storage
         .from("avatars")
-        .upload(path, bytes, { upsert: true });
+        .upload(path, blob, { upsert: true });
 
-      if (uploadErr) throw uploadErr;
+      if (error) throw error;
 
       const { data } = supabase.storage
         .from("avatars")
@@ -91,69 +92,54 @@ function ProfileSetupScreen() {
 
       return data.publicUrl;
     } catch (error) {
-      console.log("Upload error:", error);
+      console.warn("Avatar upload failed:", error);
       return null;
     }
   };
 
   /* ------------------------------------------------------------------
-     SAVE PROFILE (WITH UNIQUE REFERRAL CODE)
+     SAVE PROFILE + COMPLETE ONBOARDING
   ------------------------------------------------------------------ */
   const saveProfile = async () => {
+    if (loading) return;
+
     if (!username.trim()) {
       Alert.alert("Error", "Username is required");
       return;
     }
 
-    const { data } = await supabase.auth.getUser();
-    const user = data.user;
-    if (!user) return;
+    setLoading(true);
 
     try {
+      const { data } = await supabase.auth.getUser();
+      const user = data.user;
+      if (!user) throw new Error("User not authenticated");
+
       const avatarUrl = await uploadAvatar(user.id);
 
-      let attempts = 0;
-      let saved = false;
-      let code = referralCode;
-
-      while (!saved && attempts < 5) {
-        const { error } = await supabase.from("user_profiles").insert({
-          user_id: user.id,
+      const { error } = await supabase
+        .from("user_profiles")
+        .update({
           username: username.trim(),
           avatar_url: avatarUrl,
           referred_by: referredBy.trim() || null,
-          referral_code: code,
-          created_at: new Date().toISOString(),
-        });
+          has_completed_onboarding: true, // ✅ IMPORTANT
+        })
+        .eq("user_id", user.id);
 
-        if (!error) {
-          saved = true;
-          break;
-        }
+      if (error) throw error;
 
-        // 🔁 Retry on unique referral_code collision
-        if (error.code === "23505") {
-          code = generateReferralCode();
-          setReferralCode(code);
-          attempts++;
-        } else {
-          throw error;
-        }
-      }
-
-      if (!saved) {
-        throw new Error("Failed to generate unique referral code");
-      }
-
-      Alert.alert("Success", "Profile saved!");
+      Alert.alert("Success", "Profile completed!");
       router.replace("/(tabs)");
-    } catch (error: any) {
-      Alert.alert("Error", error.message || "Profile save failed");
+    } catch (err: any) {
+      Alert.alert("Error", err?.message ?? "Profile setup failed");
+    } finally {
+      setLoading(false);
     }
   };
 
   /* ------------------------------------------------------------------
-     ANIMATIONS (UNCHANGED)
+     ANIMATIONS
   ------------------------------------------------------------------ */
   const titleAnim = useRef(new Animated.Value(0)).current;
   const fieldsAnim = useRef(new Animated.Value(0)).current;
@@ -184,7 +170,10 @@ function ProfileSetupScreen() {
   }, []);
 
   const pressIn = () =>
-    Animated.spring(pressAnim, { toValue: 0.96, useNativeDriver: true }).start();
+    Animated.spring(pressAnim, {
+      toValue: 0.96,
+      useNativeDriver: true,
+    }).start();
 
   const pressOut = () =>
     Animated.spring(pressAnim, {
@@ -194,11 +183,11 @@ function ProfileSetupScreen() {
     }).start();
 
   /* ------------------------------------------------------------------
-     UI (UNCHANGED)
+     UI
   ------------------------------------------------------------------ */
   return (
     <KeyboardAvoidingView
-      behavior={Platform.select({ ios: "padding", android: undefined })}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
       style={styles.container}
     >
       <Animated.View
@@ -254,7 +243,7 @@ function ProfileSetupScreen() {
           value={username}
           onChangeText={setUsername}
           placeholder="Choose a username"
-          placeholderTextColor="rgba(255,255,255,0.30)"
+          placeholderTextColor="rgba(255,255,255,0.3)"
           style={styles.input}
           autoCapitalize="none"
         />
@@ -264,7 +253,7 @@ function ProfileSetupScreen() {
           value={referredBy}
           onChangeText={setReferredBy}
           placeholder="Enter code if someone invited you"
-          placeholderTextColor="rgba(255,255,255,0.30)"
+          placeholderTextColor="rgba(255,255,255,0.3)"
           style={styles.input}
           autoCapitalize="none"
         />
@@ -299,7 +288,9 @@ function ProfileSetupScreen() {
             onPress={saveProfile}
             style={styles.primaryButton}
           >
-            <Text style={styles.primaryButtonText}>Save Profile</Text>
+            <Text style={styles.primaryButtonText}>
+              {loading ? "Saving..." : "Save Profile"}
+            </Text>
           </TouchableOpacity>
         </Animated.View>
       </Animated.View>
@@ -308,7 +299,7 @@ function ProfileSetupScreen() {
 }
 
 /* ------------------------------------------------------------------
-   STYLES (unchanged — added avatar styles)
+   STYLES
 ------------------------------------------------------------------ */
 
 const BLUE = "#377dff";

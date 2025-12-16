@@ -107,8 +107,6 @@ function RegisterScreen() {
       console.warn("Profile insert error:", insertError);
     }
 
-    // 🔴 3️⃣ SIGN OUT (CRITICAL)
-    await supabase.auth.signOut();
 
     // ✅ 4️⃣ Go to onboarding
     router.replace("/(onboarding)/profileSetup");
