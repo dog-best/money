@@ -1,62 +1,93 @@
 // components/InterstitialAd.ts
-let _adsModule: any | null = null;
+import { Platform } from "react-native";
 
-// Lazy loader for google-mobile-ads
-async function loadAdsModule() {
-  if (_adsModule) return _adsModule;
-  _adsModule = await import("react-native-google-mobile-ads");
-  return _adsModule;
+const IS_NATIVE =
+  Platform.OS === "android" || Platform.OS === "ios";
+
+let Ads: any = null;
+
+/* -------------------------------------------------
+   SAFE LAZY LOAD (MATCH BOOST PATTERN)
+-------------------------------------------------- */
+function loadAdsSafe() {
+  if (!IS_NATIVE) return null;
+
+  if (Ads) return Ads;
+
+  try {
+    Ads = require("react-native-google-mobile-ads");
+    return Ads;
+  } catch {
+    Ads = null;
+    return null;
+  }
 }
 
+/* -------------------------------------------------
+   SAFE INTERSTITIAL SHOW
+-------------------------------------------------- */
 export async function showInterstitial(): Promise<void> {
-  try {
-    const ads = await loadAdsModule();
+  const ads = loadAdsSafe();
 
-    const { InterstitialAd, AdEventType, TestIds } = ads;
+  // 🚫 No-op on web / unsupported platforms
+  if (!ads?.InterstitialAd) return;
 
-    const unitId = __DEV__
+  const { InterstitialAd, AdEventType, TestIds } = ads;
+
+  const unitId =
+    __DEV__ && TestIds
       ? TestIds.INTERSTITIAL
-      : "ca-app-pub-4533962949749202/2761859275"; // ← YOUR REAL ID
+      : "ca-app-pub-4533962949749202/2761859275";
 
-    const interstitial = InterstitialAd.createForAdRequest(unitId);
+  const interstitial =
+    InterstitialAd.createForAdRequest(unitId, {
+      requestNonPersonalizedAdsOnly: true,
+    });
 
-    return new Promise<void>((resolve, reject) => {
-      const loaded = interstitial.addAdEventListener(
-        AdEventType.LOADED,
-        () => {
-          try {
-            interstitial.show();
-          } catch (e) {
-            reject(e);
-          }
-        }
-      );
+  return new Promise<void>((resolve) => {
+    let unsubLoaded: any;
+    let unsubClosed: any;
+    let unsubError: any;
 
-      const error = interstitial.addAdEventListener(
-        AdEventType.ERROR,
-        (err: any) => {
-          console.log("[Interstitial] Load error", err);
-          loaded();
-          error();
-          closed();
-          reject(err);
-        }
-      );
+    const cleanup = () => {
+      unsubLoaded?.();
+      unsubClosed?.();
+      unsubError?.();
+    };
 
-      const closed = interstitial.addAdEventListener(
-        AdEventType.CLOSED,
-        () => {
-          loaded();
-          error();
-          closed();
+    unsubLoaded = interstitial.addAdEventListener(
+      AdEventType.LOADED,
+      () => {
+        try {
+          interstitial.show();
+        } catch {
+          cleanup();
           resolve();
         }
-      );
+      }
+    );
 
+    unsubClosed = interstitial.addAdEventListener(
+      AdEventType.CLOSED,
+      () => {
+        cleanup();
+        resolve();
+      }
+    );
+
+    unsubError = interstitial.addAdEventListener(
+      AdEventType.ERROR,
+      () => {
+        cleanup();
+        resolve();
+      }
+    );
+
+    try {
       interstitial.load();
-    });
-  } catch (err) {
-    console.warn("Failed to load ads module:", err);
-    throw err;
-  }
+    } catch {
+      cleanup();
+      resolve();
+    }
+  });
 }

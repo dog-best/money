@@ -19,21 +19,10 @@ import { supabase } from "../supabase/client";
 /* -------------------------------------------------
    SAFE REWARDED AD LOADER
 -------------------------------------------------- */
-const IS_NATIVE =
-  Platform.OS === "android" || Platform.OS === "ios";
+import { showRewardedAd } from "./RewardedAd";
 
 async function safeShowRewardedAd(): Promise<boolean> {
-  if (!IS_NATIVE) return false;
-
-  try {
-    const mod = await import("./RewardedAd");
-    if (!mod?.showRewardedAd) return false;
-
-    await mod.showRewardedAd();
-    return true;
-  } catch {
-    return false;
-  }
+  return await showRewardedAd();
 }
 
 /* -------------------------------------------------
