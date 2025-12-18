@@ -183,7 +183,13 @@ function ProfileScreen() {
         </View>
 
         {/* Logout */}
-<Pressable style={styles.logoutBtn} onPress={handleLogout}>
+<Pressable
+  style={[
+    styles.logoutBtn,
+    { marginBottom: insets.bottom + 48 },
+  ]}
+  onPress={handleLogout}
+>
   <Ionicons name="log-out-outline" size={20} color="#fff" />
   <Text style={styles.logoutText}>Logout</Text>
 </Pressable>
@@ -370,7 +376,7 @@ const styles = StyleSheet.create({
   alignItems: "center",
   gap: 8,
   borderWidth: 1,
-  borderColor: "#EF444455",
+  borderColor: "#ef444452",
 },
 logoutText: {
   color: "#fff",
