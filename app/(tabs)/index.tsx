@@ -11,7 +11,8 @@ import {
   Image,
   RefreshControl,
 } from "react-native";
-import { MotiText } from "moti";
+import { MotiText, MotiView } from "moti";
+
 import { MaterialIcons, Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
@@ -111,7 +112,7 @@ export default function Page() {
   } = useMining();
 
   const miningActive = miningData?.miningActive ?? false;
-  const balanceBase = miningData?.balance ?? 0;
+  
   const PER_SECOND = DAILY_MAX / DAY_SECONDS;
 
   const animatedBalance = useRef(new Animated.Value(0)).current;
@@ -120,6 +121,8 @@ export default function Page() {
   /* spin animation (RESTORED) */
   const spinValue = useRef(new Animated.Value(0)).current;
   const spinAnim = useRef<Animated.CompositeAnimation | null>(null);
+  const [claimedBalance, setClaimedBalance] = useState<number | null>(null);
+
 
   const [isStarting, setIsStarting] = useState(false);
   const [isClaiming, setIsClaiming] = useState(false);
@@ -149,13 +152,27 @@ export default function Page() {
     miningDataRef.current = miningData;
   }, [miningData]);
 
+
   useEffect(() => {
-    Animated.timing(animatedBalance, {
-      toValue: getLiveBalance(),
-      duration: 500,
-      useNativeDriver: false,
-    }).start();
-  }, [balanceBase, getLiveBalance]);
+  if (typeof miningData?.balance === "number") {
+    setClaimedBalance(miningData.balance);
+  }
+}, [miningData?.balance]);
+
+
+  
+
+useEffect(() => {
+  if (claimedBalance === null) return;
+
+  Animated.timing(animatedBalance, {
+    toValue: claimedBalance,
+    duration: 400,
+    useNativeDriver: false,
+  }).start();
+}, [claimedBalance]);
+
+
 
   /* session ticker (RESTORED) */
   useEffect(() => {
@@ -228,15 +245,11 @@ export default function Page() {
   /* ============================================================
      ACTIONS
 =============================================================== */
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    Animated.timing(animatedBalance, {
-      toValue: getLiveBalance(),
-      duration: 400,
-      useNativeDriver: false,
-    }).start();
-    setTimeout(() => setRefreshing(false), 600);
-  };
+const handleRefresh = async () => {
+  setRefreshing(true);
+  setTimeout(() => setRefreshing(false), 600);
+};
+
 
   const handleStartStop = async () => {
     try {
@@ -310,9 +323,11 @@ export default function Page() {
       </LinearGradient>
 
       {/* STATIC CONTENT */}
-      <View style={{ marginTop: HEADER_HEIGHT }}>
+      <View style={{ marginTop: HEADER_HEIGHT - 20 }}>
         <View style={styles.balanceWrap}>
-          <Text style={styles.label}>Total Balance</Text>
+          
+          <Text style={styles.label}>Total Balance (Claimed)</Text>
+
           <AnimatedBalance animatedValue={animatedBalance} />
         </View>
 
@@ -335,30 +350,42 @@ export default function Page() {
           <IconBtn icon="play-circle" label="Watch" onPress={() => setWatchOpen(true)} />
         </View>
 
-        {/* SESSION */}
-        <View style={styles.sessionCard}>
-          <Text style={styles.sessionValue}>
-            {sessionBalance.toFixed(4)} VAD
-          </Text>
+         {/* SESSION */}
+<View style={styles.sessionCard}>
+  <Text style={styles.sessionLabel}>Mining Session</Text>
 
-          <View style={styles.progressBg}>
-            <View style={[styles.progressFill, { width: `${progress * 100}%` }]} />
-          </View>
+  <Text style={styles.sessionValue}>
+    {sessionBalance.toFixed(4)} VAD
+  </Text>
 
-          <Text style={styles.progressMeta}>
-            {canClaim
-              ? "✅ Claim available"
-              : `⏳ Claim unlocks in ${Math.floor(timeLeft / 3600)}h ${Math.floor(
-                  (timeLeft % 3600) / 60
-                )}m`}
-          </Text>
-        </View>
-      </View>
+  <View style={styles.progressBg}>
+    <View
+      style={[
+        styles.progressFill,
+        { width: `${progress * 100}%` },
+      ]}
+    />
+  </View>
 
-      {/* FIXED ADBANNER */}
-      <View style={styles.bannerWrap}>
-        <AdBanner />
-      </View>
+  <Text style={styles.progressMeta}>
+    {canClaim
+      ? "✅ Claim available"
+      : `⏳ Claim unlocks in ${Math.floor(timeLeft / 3600)}h ${Math.floor(
+          (timeLeft % 3600) / 60
+        )}m`}
+  </Text>
+</View>
+</View>
+
+      <MotiView
+  from={{ opacity: 0, translateY: 6 }}
+  animate={{ opacity: 1, translateY: 0 }}
+  transition={{ duration: 300 }}
+  style={styles.inlineAdWrap}
+>
+  <AdBanner />
+</MotiView>
+
 
       {/* SCROLLABLE NEWS ONLY */}
       <ScrollView
@@ -433,7 +460,12 @@ const styles = StyleSheet.create({
   },
   avatar: { width: 44, height: 44, borderRadius: 22 },
 
-  balanceWrap: { padding: 22 },
+  balanceWrap: {
+  paddingHorizontal: 22,
+  paddingTop: 18,
+  paddingBottom: 12,
+},
+
   label: { color: "#9FA8C7", marginBottom: 6 },
   balance: { fontSize: 42, color: "#fff", fontWeight: "900" },
   vadText: { fontSize: 18, color: "#8B5CF6" },
@@ -477,6 +509,7 @@ const styles = StyleSheet.create({
   newsScroll: { flex: 1 },
   newsCard: {
     marginHorizontal: 22,
+    marginTop: 4,
     backgroundColor: "rgba(255,255,255,0.03)",
     borderRadius: 18,
     padding: 18,
@@ -490,4 +523,22 @@ const styles = StyleSheet.create({
   },
   newsHeadline: { color: "#8B5CF6", fontWeight: "800" },
   newsBody: { color: "#fff", fontSize: 13 },
+
+  sessionLabel: {
+  color: "#9FA8C7",
+  fontSize: 12,
+  marginBottom: 4,
+},
+
+inlineAdWrap: {
+  marginHorizontal: 22,
+  marginBottom: 14,
+  height: BANNER_HEIGHT,
+  borderRadius: 18,
+  overflow: "hidden",
+  alignItems: "center",
+  justifyContent: "center",
+},
+
+
 });
