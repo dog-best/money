@@ -11,42 +11,12 @@ import {
   Modal,
   Pressable,
   StyleSheet,
-  Platform,
 } from "react-native";
 
 import { supabase } from "../supabase/client";
 import { useMining } from "../hooks/useMining";
 import { claimBoostReward } from "../services/user";
-
-/* ----------------------------------------------------
-   SAFE ADS SETUP
----------------------------------------------------- */
-const IS_NATIVE =
-  Platform.OS === "android" || Platform.OS === "ios";
-
-let Ads: any = null;
-if (IS_NATIVE) {
-  try {
-    Ads = require("react-native-google-mobile-ads");
-  } catch {
-    Ads = null;
-  }
-}
-
-function useSafeInterstitialAd(adUnitId: string) {
-  if (!IS_NATIVE || !Ads?.useInterstitialAd) {
-    return {
-      isLoaded: false,
-      isClosed: false,
-      load: () => {},
-      show: () => {},
-    };
-  }
-
-  return Ads.useInterstitialAd(adUnitId, {
-    requestNonPersonalizedAdsOnly: true,
-  });
-}
+import { showInterstitial } from "./InterstitialAd";
 
 /* ----------------------------------------------------
    TYPES
@@ -101,7 +71,6 @@ export default function Boost({
   const [cooldownMs, setCooldownMs] = useState(0);
 
   const mountedRef = useRef(true);
-  const rewardPendingRef = useRef(false);
   const loadingRef = useRef(false);
 
   useEffect(() => {
@@ -111,17 +80,6 @@ export default function Boost({
       mountedRef.current = false;
     };
   }, [loading]);
-
-  /* ----------------------------------------------------
-     INTERSTITIAL AD
-  ---------------------------------------------------- */
-  const adUnitId =
-    __DEV__ && Ads?.TestIds
-      ? Ads.TestIds.INTERSTITIAL
-      : "YOUR_REAL_PROD_AD_UNIT_ID";
-
-  const { isLoaded, isClosed, load, show } =
-    useSafeInterstitialAd(adUnitId);
 
   /* ----------------------------------------------------
      AUTO CLOSE IF LOGGED OUT
@@ -168,50 +126,7 @@ export default function Boost({
   }, [boostSafe?.lastReset]);
 
   /* ----------------------------------------------------
-     LOAD AD WHEN VISIBLE
-  ---------------------------------------------------- */
-  useEffect(() => {
-    if (visible) load();
-  }, [visible, load]);
-
-  /* ----------------------------------------------------
-     AD CLOSED → GIVE REWARD
-  ---------------------------------------------------- */
-  useEffect(() => {
-    if (!isClosed || !rewardPendingRef.current) return;
-
-    rewardPendingRef.current = false;
-
-    (async () => {
-      try {
-        const user = await getCurrentUser();
-        if (!user || !mountedRef.current) return;
-
-        const reward = await claimBoostReward(
-          user.id
-        );
-
-        if (!mountedRef.current) return;
-
-        setMessage(
-          reward === 0
-            ? "Boost limit reached."
-            : `+${reward.toFixed(1)} VAD added!`
-        );
-      } catch {
-        if (mountedRef.current)
-          setMessage("Boost failed.");
-      } finally {
-        if (mountedRef.current) {
-          setLoading(false);
-          loadingRef.current = false;
-        }
-      }
-    })();
-  }, [isClosed]);
-
-  /* ----------------------------------------------------
-     WATCH AD HANDLER
+     WATCH AD HANDLER (FIXED)
   ---------------------------------------------------- */
   const usedToday = boostSafe?.usedToday ?? 0;
   const remaining = Math.max(0, 3 - usedToday);
@@ -222,40 +137,38 @@ export default function Boost({
     setMessage("");
     setLoading(true);
     loadingRef.current = true;
-    rewardPendingRef.current = true;
-
-    const user = await getCurrentUser();
-    if (!user) {
-      setMessage("Login required.");
-      setLoading(false);
-      loadingRef.current = false;
-      rewardPendingRef.current = false;
-      return;
-    }
-
-    if (remaining <= 0) {
-      setMessage("No boosts left today.");
-      setLoading(false);
-      loadingRef.current = false;
-      rewardPendingRef.current = false;
-      return;
-    }
-
-    if (!isLoaded) {
-      load();
-      setLoading(false);
-      loadingRef.current = false;
-      rewardPendingRef.current = false;
-      return;
-    }
 
     try {
-      show();
-    } catch {
-      rewardPendingRef.current = false;
-      setMessage("Failed to show ad.");
-      setLoading(false);
-      loadingRef.current = false;
+      const user = await getCurrentUser();
+      if (!user) {
+        setMessage("Login required.");
+        return;
+      }
+
+      if (remaining <= 0) {
+        setMessage("No boosts left today.");
+        return;
+      }
+
+      // 🔥 SHOW AD FIRST
+      await showInterstitial();
+
+      // ✅ THEN APPLY BOOST
+      const reward = await claimBoostReward(user.id);
+
+      setMessage(
+        reward === 0
+          ? "Boost limit reached."
+          : `+${reward.toFixed(1)} VAD added!`
+      );
+    } catch (err) {
+      console.log("Boost ad failed:", err);
+      setMessage("Ad not available. Try again later.");
+    } finally {
+      if (mountedRef.current) {
+        setLoading(false);
+        loadingRef.current = false;
+      }
     }
   };
 
@@ -265,10 +178,7 @@ export default function Boost({
       : `${remaining} boosts remaining today`;
   }, [remaining, cooldownMs]);
 
-  // ⛔ RETURN JSX CONTINUES (UNCHANGED)
-
-
-
+  // ⛔ JSX / UI CONTINUES BELOW (UNCHANGED)
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
