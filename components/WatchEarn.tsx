@@ -29,8 +29,19 @@ const claimWatchRewardSupabase = async (userId: string) => {
   );
 
   if (error) throw error;
-  return data;
+
+  // data is an array when RETURNS TABLE
+  const row = Array.isArray(data) ? data[0] : data;
+
+  return {
+    reward: Number(row?.reward ?? 0),
+    stats: {
+      totalWatched: Number(row?.total_watched ?? 0),
+      totalEarned: Number(row?.total_earned ?? 0),
+    },
+  };
 };
+
 
 type Props = {
   visible?: boolean;
@@ -97,7 +108,7 @@ export default function WatchEarn({
 
     const loadStats = async () => {
       const { data } = await supabase
-        .from("watch_earn")
+        .from("watch_earn_data")
         .select("*")
         .eq("user_id", uid)
         .single();
@@ -120,7 +131,7 @@ export default function WatchEarn({
     {
       event: "*",
       schema: "public",
-      table: "watch_earn",
+      table: "watch_earn_data",
       filter: `user_id=eq.${uid}`, // ✅ CORRECT
     },
     loadStats
@@ -150,16 +161,27 @@ export default function WatchEarn({
     await showRewardedAd();
 
     // ✅ THEN reward user
-    const reward = await claimWatchRewardSupabase(uid);
-    if (!mountedRef.current) return;
+const res = await claimWatchRewardSupabase(uid);
 
-   if (reward > 0) {
-  setCompleted(true);
-  setMessage(`+${reward.toFixed(2)} VAD credited!`);
-} else {
+if (!res || res.reward <= 0) {
   setCompleted(false);
   setMessage("Reward not granted. Please try again later.");
+  return;
 }
+
+// 🔥 apply backend truth immediately
+setStats(res.stats);
+
+setCompleted(true);
+setMessage(`+${res.reward.toFixed(2)} VAD credited!`);
+
+
+// 🔥 apply backend truth immediately
+setStats(res.stats);
+
+setCompleted(true);
+setMessage(`+${res.reward.toFixed(2)} VAD credited!`);
+
 
   } catch (err) {
     console.log("Rewarded ad not completed:", err);
