@@ -1,3 +1,4 @@
+//componenets/DailyClaim.tsx
 import {
   View,
   Text,
@@ -37,7 +38,8 @@ export default function DailyClaim({
   visible,
   onClose,
 }: DailyClaimProps) {
-  const { dailyClaim } = useMining();
+  const { dailyClaim, applyDailyClaim } = useMining();
+
 
   const [uid, setUid] = useState<string | null>(null);
 
@@ -137,11 +139,14 @@ export default function DailyClaim({
         ? res?.reward ?? 0
         : Number(res || 0);
 
-   if (reward > 0) {
-  setMessage(`+${reward.toFixed(1)} VAD added to your balance!`);
-} else {
+if (!res || res.reward <= 0 || !res.dailyClaim) {
   setMessage("Claim failed. Please try again later.");
+  return;
 }
+
+applyDailyClaim(res);
+setMessage(`+${res.reward.toFixed(1)} VAD added to your balance!`);
+
 
   } catch (err) {
     console.log("Ad or claim failed:", err);

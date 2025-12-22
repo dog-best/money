@@ -145,6 +145,22 @@ export function useMining() {
 
   const channelsRef = useRef<any[]>([]);
 
+  const applyDailyClaim = useCallback(
+  (data: { reward: number; dailyClaim: RawDailyRow }) => {
+    setDailyClaim(data.dailyClaim);
+
+    setMiningData((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        balance: prev.balance + data.reward,
+      };
+    });
+  },
+  []
+);
+  
+
   /* ------------------------------------------------------------
      INITIAL LOAD + REALTIME
   ------------------------------------------------------------ */
@@ -210,21 +226,22 @@ export function useMining() {
         )
         .subscribe();
 
-      const dailyChannel = supabase
-        .channel(`daily:uid:${uid}`)
-        .on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
-            table: "daily_claim",
-            filter: `user_id=eq.${uid}`,
-          },
-          (payload) => {
-            setDailyClaim(payload.new as RawDailyRow);
-          }
-        )
-        .subscribe();
+     const dailyChannel = supabase
+  .channel(`daily:uid:${uid}`)
+  .on(
+    "postgres_changes",
+    {
+      event: "*",
+      schema: "public",
+      table: "daily_claim_data", // ✅ FIXED
+      filter: `user_id=eq.${uid}`,
+    },
+    (payload) => {
+      setDailyClaim(payload.new as RawDailyRow);
+    }
+  )
+  .subscribe();
+
 
       const boostChannel = supabase
         .channel(`boost:uid:${uid}`)
@@ -282,16 +299,17 @@ export function useMining() {
     return computeDisplayBalanceFromMining(miningData);
   }, [miningData]);
 
-  return {
-    miningData,
-    userProfile,
-    dailyClaim,
-    boost,
-    watchEarn,
-    isLoading,
-    start,
-    stop,
-    claim,
-    getLiveBalance,
-  };
+return {
+  miningData,
+  userProfile,
+  dailyClaim,
+  boost,
+  watchEarn,
+  isLoading,
+  start,
+  stop,
+  claim,
+  getLiveBalance,
+  applyDailyClaim, // ✅ ADD THIS
+};
 }

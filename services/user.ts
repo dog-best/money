@@ -353,12 +353,16 @@ export async function claimDailyReward(uid: string) {
 
   if (uMining.error || uDaily.error) return { reward: 0 };
 
-  return {
-    reward: REWARD,
-    newStreak: daily.streak,
-    newLastClaim: now.toISOString(),
-    newBalance: (mining.balance ?? 0) + REWARD,
-  };
+return {
+  reward: REWARD,
+  dailyClaim: {
+    user_id: uid,
+    last_claim: now.toISOString(),
+    streak: daily.streak,
+    total_earned: (daily.total_earned ?? 0) + REWARD,
+  },
+};
+
 }
 
 /* -------------------------------------------------------------
