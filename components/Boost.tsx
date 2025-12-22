@@ -156,11 +156,12 @@ export default function Boost({
       // ✅ THEN APPLY BOOST
       const reward = await claimBoostReward(user.id);
 
-      setMessage(
-        reward === 0
-          ? "Boost limit reached."
-          : `+${reward.toFixed(1)} VAD added!`
-      );
+      if (reward > 0) {
+  setMessage(`+${reward.toFixed(1)} VAD added!`);
+} else {
+  setMessage("Boost failed. Please try again.");
+}
+
     } catch (err) {
       console.log("Boost ad failed:", err);
       setMessage("Ad not available. Try again later.");

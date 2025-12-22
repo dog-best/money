@@ -1,7 +1,5 @@
 // hooks/useMining.ts
-// hooks/useMining.ts
 import { useState, useEffect, useRef, useCallback } from "react";
-import { createUserInFirestore } from "../services/user";
 import { supabase } from "../supabase/client";
 import {
   startMining,
@@ -59,7 +57,7 @@ export type MiningData = {
   miningActive: boolean;
   lastStart: string | null;
   lastClaim: string | null;
-  balance: number; // authoritative server balance
+  balance: number;
 };
 
 export type UserProfile = {
@@ -108,7 +106,7 @@ function normalizeBoost(b: RawBoostRow | null) {
 }
 
 /* ------------------------------------------------------------
-   LIVE BALANCE (SAFE)
+   LIVE BALANCE
 ------------------------------------------------------------ */
 
 function computeDisplayBalanceFromMining(mining: MiningData | null) {
@@ -120,10 +118,7 @@ function computeDisplayBalanceFromMining(mining: MiningData | null) {
 
   const now = Date.now();
   const startMs = new Date(mining.lastStart).getTime();
-  const elapsedSeconds = Math.max(
-    0,
-    Math.floor((now - startMs) / 1000)
-  );
+  const elapsedSeconds = Math.max(0, Math.floor((now - startMs) / 1000));
 
   const MAX_SECONDS = 24 * 3600;
   const DAILY_MAX = 4.8;
@@ -154,127 +149,134 @@ export function useMining() {
      INITIAL LOAD + REALTIME
   ------------------------------------------------------------ */
 
-useEffect(() => {
-  let mounted = true;
+  useEffect(() => {
+    let mounted = true;
 
-  (async () => {
-    setIsLoading(true);
+    (async () => {
+      setIsLoading(true);
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
-    if (!user) {
-      setIsLoading(false);
-      return;
-    }
+      if (!user) {
+        if (mounted) setIsLoading(false);
+        return;
+      }
 
-    const uid = user.id;
+      const uid = user.id;
 
-    try {
-      const combined = await getUserData(uid);
-      if (!mounted) return;
-
-      setUserProfile(normalizeProfile(combined?.profile ?? null));
-      setMiningData(normalizeMining(combined?.mining ?? null));
-      setDailyClaim(combined?.dailyClaim ?? null);
-      setBoost(normalizeBoost(combined?.boost ?? null));
-      setWatchEarn(combined?.watchEarn ?? null);
-    } finally {
-      if (mounted) setIsLoading(false);
-    }
-
-    /* ------------------ REALTIME (SAFE MERGE) ------------------ */
-
-    const miningChannel = supabase
-      .channel(`mining:uid:${uid}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "mining_data",
-          filter: `user_id=eq.${uid}`,
-        },
-        (payload) => {
-          const incoming = normalizeMining(payload.new as RawMiningRow);
-          if (!incoming) return;
-
-          setMiningData((prev) => {
-            if (!prev) return incoming;
-            return {
-              miningActive: incoming.miningActive,
-              lastStart: incoming.lastStart ?? prev.lastStart,
-              lastClaim: incoming.lastClaim ?? prev.lastClaim,
-              balance: Math.max(prev.balance, incoming.balance),
-            };
-          });
-        }
-      )
-      .subscribe();
-
-    const dailyChannel = supabase
-      .channel(`daily:uid:${uid}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "daily_claim",
-          filter: `user_id=eq.${uid}`,
-        },
-        (payload) => {
-          setDailyClaim(payload.new as RawDailyRow);
-        }
-      )
-      .subscribe();
-
-    channelsRef.current = [miningChannel, dailyChannel];
-  })();
-
-  return () => {
-    mounted = false;
-    channelsRef.current.forEach((ch) => {
       try {
-        supabase.removeChannel(ch);
-      } catch {}
-    });
-    channelsRef.current = [];
-  };
-}, []);
+        const combined = await getUserData(uid);
+        if (!mounted) return;
 
-  
+        setUserProfile(normalizeProfile(combined?.profile ?? null));
+        setMiningData(normalizeMining(combined?.mining ?? null));
+        setDailyClaim(combined?.dailyClaim ?? null);
+        setBoost(normalizeBoost(combined?.boost ?? null));
+        setWatchEarn(combined?.watchEarn ?? null);
+      } finally {
+        if (mounted) setIsLoading(false);
+      }
+
+      /* ------------------ REALTIME ------------------ */
+
+      const miningChannel = supabase
+        .channel(`mining:uid:${uid}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "mining_data",
+            filter: `user_id=eq.${uid}`,
+          },
+          (payload) => {
+            const incoming = normalizeMining(
+              payload.new as RawMiningRow
+            );
+            if (!incoming) return;
+
+            setMiningData((prev) => {
+              if (!prev) return incoming;
+              return {
+                miningActive: incoming.miningActive,
+                lastStart: incoming.lastStart ?? prev.lastStart,
+                lastClaim: incoming.lastClaim ?? prev.lastClaim,
+                balance: Math.max(prev.balance, incoming.balance),
+              };
+            });
+          }
+        )
+        .subscribe();
+
+      const dailyChannel = supabase
+        .channel(`daily:uid:${uid}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "daily_claim",
+            filter: `user_id=eq.${uid}`,
+          },
+          (payload) => {
+            setDailyClaim(payload.new as RawDailyRow);
+          }
+        )
+        .subscribe();
+
+      const boostChannel = supabase
+        .channel(`boost:uid:${uid}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "boost",
+            filter: `user_id=eq.${uid}`,
+          },
+          (payload) => {
+            setBoost(normalizeBoost(payload.new as RawBoostRow));
+          }
+        )
+        .subscribe();
+
+      channelsRef.current = [
+        miningChannel,
+        dailyChannel,
+        boostChannel,
+      ];
+    })();
+
+    return () => {
+      mounted = false;
+      channelsRef.current.forEach((c) => supabase.removeChannel(c));
+      channelsRef.current = [];
+    };
+  }, []);
+
   /* ------------------------------------------------------------
      ACTIONS
   ------------------------------------------------------------ */
 
   const start = useCallback(async () => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) return;
-    await startMining(user.id);
+    const { data } = await supabase.auth.getUser();
+    if (!data.user) return;
+    await startMining(data.user.id);
   }, []);
 
   const stop = useCallback(async () => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) return;
-    await stopMining(user.id);
+    const { data } = await supabase.auth.getUser();
+    if (!data.user) return;
+    await stopMining(data.user.id);
   }, []);
 
   const claim = useCallback(async () => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) return 0;
-    return await claimMiningReward(user.id);
+    const { data } = await supabase.auth.getUser();
+    if (!data.user) return 0;
+    return await claimMiningReward(data.user.id);
   }, []);
-
-  /* ------------------------------------------------------------
-     PUBLIC API
-  ------------------------------------------------------------ */
 
   const getLiveBalance = useCallback(() => {
     return computeDisplayBalanceFromMining(miningData);

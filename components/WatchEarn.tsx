@@ -99,9 +99,10 @@ export default function WatchEarn({
       const { data } = await supabase
         .from("watch_earn")
         .select("*")
-        .eq("id", uid)
+        .eq("user_id", uid)
         .single();
 
+        
       if (!data || !active) return;
 
       setStats({
@@ -113,18 +114,19 @@ export default function WatchEarn({
     loadStats();
 
     const channel = supabase
-      .channel(`watch_earn_${uid}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "watch_earn",
-          filter: `id=eq.${uid}`,
-        },
-        loadStats
-      )
-      .subscribe();
+  .channel(`watch_earn_${uid}`)
+  .on(
+    "postgres_changes",
+    {
+      event: "*",
+      schema: "public",
+      table: "watch_earn",
+      filter: `user_id=eq.${uid}`, // ✅ CORRECT
+    },
+    loadStats
+  )
+  .subscribe();
+
 
     return () => {
       active = false;
@@ -151,10 +153,14 @@ export default function WatchEarn({
     const reward = await claimWatchRewardSupabase(uid);
     if (!mountedRef.current) return;
 
-    setCompleted(true);
-    setMessage(
-      `+${Number(reward || 0).toFixed(2)} VAD credited!`
-    );
+   if (reward > 0) {
+  setCompleted(true);
+  setMessage(`+${reward.toFixed(2)} VAD credited!`);
+} else {
+  setCompleted(false);
+  setMessage("Reward not granted. Please try again later.");
+}
+
   } catch (err) {
     console.log("Rewarded ad not completed:", err);
     if (mountedRef.current)

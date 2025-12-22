@@ -7,9 +7,7 @@ import {
 } from "react-native-google-mobile-ads";
 import { Platform } from "react-native";
 
-export async function showRewardedAd(
-  onReward?: (reward: { amount: number; type: string }) => void
-): Promise<boolean> {
+export async function showRewardedAd(): Promise<boolean> {
   if (Platform.OS !== "android") return false;
 
   const unitId = __DEV__
@@ -21,11 +19,12 @@ export async function showRewardedAd(
   });
 
   return new Promise<boolean>((resolve) => {
+    let earned = false;
     let finished = false;
 
     const cleanup = () => {
       loaded();
-      earned();
+      reward();
       closed();
       error();
     };
@@ -35,11 +34,10 @@ export async function showRewardedAd(
       () => rewarded.show()
     );
 
-    const earned = rewarded.addAdEventListener(
+    const reward = rewarded.addAdEventListener(
       RewardedAdEventType.EARNED_REWARD,
-      (reward) => {
-        console.log("✅ Reward earned:", reward);
-        onReward?.(reward);
+      () => {
+        earned = true;
       }
     );
 
@@ -49,18 +47,17 @@ export async function showRewardedAd(
         if (finished) return;
         finished = true;
         cleanup();
-        resolve(true); // 👈 allow next ad later
+        resolve(earned); // ✅ TRUE only if reward earned
       }
     );
 
     const error = rewarded.addAdEventListener(
       AdEventType.ERROR,
-      (err) => {
-        console.log("❌ Rewarded error:", err);
+      () => {
         if (finished) return;
         finished = true;
         cleanup();
-        resolve(false); // 👈 DO NOT reject
+        resolve(false);
       }
     );
 
