@@ -15,6 +15,16 @@ import {
 export const generateReferralCode = (uid: string) =>
   uid.slice(0, 6).toUpperCase();
 
+
+/* -------------------------------------------------------------
+   TYPES (SERVICE CONTRACTS)
+------------------------------------------------------------- */
+
+export type ClaimResult =
+  | { success: true; reward: number; dailyClaim: DailyClaimData }
+  | { success: false; reason: "cooldown" | "fetch_failed" | "update_failed" };
+
+
 /* -------------------------------------------------------------
    CREATE USER AFTER REGISTER
 ------------------------------------------------------------- */
@@ -319,60 +329,78 @@ export async function claimBoostReward(uid: string) {
 /* -------------------------------------------------------------
    DAILY CLAIM
 ------------------------------------------------------------- */
-export async function claimDailyReward(uid: string) {
+export async function claimDailyReward(
+  uid: string
+): Promise<ClaimResult> {
   const [dRes, mRes] = await Promise.all([
     supabase.from("daily_claim_data").select("*").eq("user_id", uid).single(),
     supabase.from("mining_data").select("*").eq("user_id", uid).single(),
   ]);
 
-  if (dRes.error || mRes.error) return { reward: 0 };
+  if (dRes.error || mRes.error || !dRes.data || !mRes.data) {
+    return { success: false, reason: "fetch_failed" };
+  }
 
-  const daily = dRes.data as any;
+  const daily = dRes.data as DailyClaimData;
   const mining = mRes.data as any;
 
   const now = new Date();
   const lastClaim = daily.last_claim ? new Date(daily.last_claim) : null;
-  const DAY = 24 * 3600 * 1000;
+  const DAY = 24 * 60 * 60 * 1000;
 
-  if (lastClaim && now.getTime() - lastClaim.getTime() < DAY)
-    return { reward: 0 };
+  // ⏳ cooldown
+  if (lastClaim && now.getTime() - lastClaim.getTime() < DAY) {
+    return { success: false, reason: "cooldown" };
+  }
 
-  if (lastClaim && now.getTime() - lastClaim.getTime() >= DAY * 2)
-    daily.streak = 0;
+  // 🔄 streak reset after missed day
+  let streak = daily.streak ?? 0;
+  if (lastClaim && now.getTime() - lastClaim.getTime() >= DAY * 2) {
+    streak = 0;
+  }
 
-  daily.streak = (daily.streak ?? 0) + 1;
+  streak += 1;
 
-  let REWARD = 0.1 * daily.streak;
-  if (daily.streak === 7) REWARD = 2;
+  // 🎁 reward calculation
+  let reward = 0.1 * streak;
+  if (streak === 7) reward = 2;
+
+  const newTotalEarned = (daily.total_earned ?? 0) + reward;
+  const newBalance = (mining.balance ?? 0) + reward;
+  const nowIso = now.toISOString();
 
   const [uMining, uDaily] = await Promise.all([
     supabase
       .from("mining_data")
-      .update({ balance: (mining.balance ?? 0) + REWARD })
+      .update({ balance: newBalance })
       .eq("user_id", uid),
     supabase
       .from("daily_claim_data")
       .update({
-        last_claim: now.toISOString(),
-        streak: daily.streak,
-        total_earned: (daily.total_earned ?? 0) + REWARD,
+        last_claim: nowIso,
+        streak,
+        total_earned: newTotalEarned,
       })
       .eq("user_id", uid),
   ]);
 
-  if (uMining.error || uDaily.error) return { reward: 0 };
+  if (uMining.error || uDaily.error) {
+    return { success: false, reason: "update_failed" };
+  }
 
-return {
-  reward: REWARD,
-  dailyClaim: {
-    user_id: uid,
-    last_claim: now.toISOString(),
-    streak: daily.streak,
-    total_earned: (daily.total_earned ?? 0) + REWARD,
-  },
-};
-
+  // ✅ SUCCESS (this is what was missing before)
+  return {
+    success: true,
+    reward,
+    dailyClaim: {
+      user_id: uid,
+      last_claim: nowIso,
+      streak,
+      total_earned: newTotalEarned,
+    },
+  };
 }
+
 
 /* -------------------------------------------------------------
    WATCH & EARN
