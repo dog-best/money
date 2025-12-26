@@ -174,15 +174,31 @@ export default function Page() {
     return () => clearInterval(id);
   }, []);
 
-  useEffect(() => {
-    Animated.loop(
+useEffect(() => {
+  let loop: Animated.CompositeAnimation | null = null;
+
+  if (miningActive) {
+    spinValue.setValue(0);
+
+    loop = Animated.loop(
       Animated.timing(spinValue, {
         toValue: 1,
         duration: 3200,
         useNativeDriver: true,
       })
-    ).start();
-  }, []);
+    );
+
+    loop.start();
+  } else {
+    spinValue.stopAnimation();
+    spinValue.setValue(0);
+  }
+
+  return () => {
+    loop?.stop();
+  };
+}, [miningActive]);
+
 
   if (isLoading) {
     return (

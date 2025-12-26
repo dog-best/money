@@ -143,28 +143,21 @@ export async function getUserData(uid: string) {
 export async function startMining(uid: string) {
   const now = new Date().toISOString();
 
-  // 🔒 Ensure row exists (idempotent)
-  await supabase
-    .from("mining_data")
-    .upsert({ user_id: uid }, { onConflict: "user_id" });
-
   const { data, error } = await supabase
     .from("mining_data")
     .update({
       mining_active: true,
       last_start: now,
-      last_claim: now,
+      last_stop: null,
     })
     .eq("user_id", uid)
-    .eq("mining_active", false)
-    .select();
+    .select()
+    .single();
 
   if (error) throw error;
-  if (!data || data.length === 0)
-    throw new Error("Mining already active");
-
-  return data[0];
+  return data;
 }
+
 
 /* -------------------------------------------------------------
    STOP MINING
