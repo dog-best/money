@@ -15,6 +15,8 @@ import { MotiText } from "moti";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { RefreshControl } from "react-native";
+
 
 import { useMining } from "../../hooks/useMining";
 import DailyClaim from "../../components/DailyClaim";
@@ -89,6 +91,7 @@ export default function Page() {
     start,
     stop,
     claim,
+   refreshAll
   } = useMining();
 
   const miningActive = miningData?.miningActive ?? false;
@@ -105,6 +108,9 @@ export default function Page() {
   const [sessionElapsed, setSessionElapsed] = useState(0);
   const [sessionBalance, setSessionBalance] = useState(0);
   const [timeLeft, setTimeLeft] = useState(DAY_SECONDS);
+  
+  const [refreshing, setRefreshing] = useState(false);
+
 
   const [dailyOpen, setDailyOpen] = useState(false);
   const [boostOpen, setBoostOpen] = useState(false);
@@ -118,7 +124,13 @@ export default function Page() {
 
   const canClaim = miningActive && sessionElapsed >= DAY_SECONDS;
   const tier = getTier(miningData?.balance ?? 0);
-
+ 
+  const onRefresh = async () => {
+  setRefreshing(true);
+  await refreshAll();
+  setRefreshing(false);
+};
+ 
   /* ============================================================
      EFFECTS
 =============================================================== */
@@ -126,11 +138,12 @@ export default function Page() {
     miningDataRef.current = miningData;
   }, [miningData]);
 
-  useEffect(() => {
-    if (typeof miningData?.balance === "number") {
-      setClaimedBalance(miningData.balance);
-    }
-  }, [miningData?.balance]);
+useEffect(() => {
+  if (miningData && typeof miningData.balance === "number") {
+    setClaimedBalance(miningData.balance);
+  }
+}, [miningData]);
+
 
   useEffect(() => {
     if (claimedBalance === null) return;
@@ -219,6 +232,7 @@ useEffect(() => {
     outputRange: ["0deg", "360deg"],
   });
 
+
   /* ============================================================
      RENDER
 =============================================================== */
@@ -235,6 +249,10 @@ useEffect(() => {
           colors={["#24164a", "#0b0614"]}
           style={StyleSheet.absoluteFill}
         />
+        <Pressable onPress={refreshAll} style={{ padding: 6 }}>
+  <Ionicons name="refresh" size={22} color="#8B5CF6" />
+</Pressable>
+
 
         {/* SHIMMER */}
         <Animated.View
@@ -290,13 +308,21 @@ useEffect(() => {
 
       {/* CONTENT */}
       <Animated.ScrollView
-        contentContainerStyle={{ paddingTop: HEADER_MAX }}
-        onScroll={Animated.event(
-          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-          { useNativeDriver: false }
-        )}
-        scrollEventThrottle={16}
-      >
+  contentContainerStyle={{ paddingTop: HEADER_MAX }}
+  refreshControl={
+    <RefreshControl
+      refreshing={refreshing}
+      onRefresh={onRefresh}
+      tintColor="#8B5CF6"
+    />
+  }
+  onScroll={Animated.event(
+    [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+    { useNativeDriver: false }
+  )}
+  scrollEventThrottle={16}
+>
+
         {/* BALANCE */}
         <View style={styles.balanceWrap}>
           <Text style={styles.label}>Total Balance</Text>
