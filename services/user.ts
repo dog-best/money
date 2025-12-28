@@ -183,15 +183,19 @@ export async function claimMiningReward(uid: string) {
     .single();
 
   if (error || !data) return 0;
-  if (!data.mining_active) return 0;
 
   const now = new Date();
-  const lastClaim = data.last_claim
+
+  const lastCheckpoint = data.last_claim
     ? new Date(data.last_claim)
-    : new Date(data.last_start);
+    : data.last_start
+    ? new Date(data.last_start)
+    : null;
+
+  if (!lastCheckpoint) return 0;
 
   const elapsedSeconds = Math.floor(
-    (now.getTime() - lastClaim.getTime()) / 1000
+    (now.getTime() - lastCheckpoint.getTime()) / 1000
   );
 
   if (elapsedSeconds <= 0) return 0;
@@ -202,20 +206,31 @@ export async function claimMiningReward(uid: string) {
   const cappedSeconds = Math.min(elapsedSeconds, MAX_SECONDS);
   const reward = (cappedSeconds / MAX_SECONDS) * DAILY_MAX;
 
-  const { data: updated, error: updErr } = await supabase
-    .from("mining_data")
-    .update({
-      balance: data.balance + reward,
-      last_claim: now.toISOString(), // ✅ checkpoint only
-    })
-    .eq("user_id", uid)
-    .eq("last_claim", data.last_claim) // 🔒 race lock
-    .select();
+let query = supabase
+  .from("mining_data")
+ .update({
+  balance: data.balance + reward,
+  last_claim: now.toISOString(),
+  mining_active: false,
+  last_start: null, // ✅ HARD RESET SESSION
+})
 
-  if (updErr || !updated || updated.length === 0) return 0;
+  .eq("user_id", uid);
+
+if (data.last_claim) {
+  query = query.eq("last_claim", data.last_claim); // race lock ONLY if exists
+}
+
+const { data: updated, error: updErr } = await query
+  .select()
+  .single();
+
+
+  if (updErr || !updated) return 0;
 
   return reward;
 }
+
 
 /* -------------------------------------------------------------
    REGISTER REFERRAL

@@ -5,25 +5,36 @@ import { View, ActivityIndicator, Platform } from "react-native";
 import { useEffect } from "react";
 import { useAuth } from "../hooks/useAuth";
 
-// ✅ ADD THIS
+// AdMob
 import mobileAds from "react-native-google-mobile-ads";
+
+// Notifications
+import {
+  setupNotificationHandler,
+  initNotifications,
+} from "../utils/notifications";
 
 export default function RootLayout() {
   const { user, loading, onboarded } = useAuth();
   const segments = useSegments();
 
-  // ✅ INITIALIZE ADMOB ONCE (ANDROID ONLY)
+  // ✅ INITIALIZE GLOBAL SERVICES ONCE
   useEffect(() => {
-    if (Platform.OS !== "android") return;
+    // ---- Notifications ----
+    setupNotificationHandler();
+    initNotifications();
 
-    mobileAds()
-      .initialize()
-      .then(status => {
-        console.log("✅ AdMob initialized:", status);
-      })
-      .catch(err => {
-        console.log("❌ AdMob init failed:", err);
-      });
+    // ---- AdMob (Android only) ----
+    if (Platform.OS === "android") {
+      mobileAds()
+        .initialize()
+        .then(status => {
+          console.log("✅ AdMob initialized:", status);
+        })
+        .catch(err => {
+          console.log("❌ AdMob init failed:", err);
+        });
+    }
   }, []);
 
   if (loading) {
@@ -48,12 +59,12 @@ export default function RootLayout() {
     return <Redirect href="/(auth)/login" />;
   }
 
-  // 🚧 Logged-in but NOT onboarded → force onboarding
+  // 🚧 Logged-in but NOT onboarded
   if (user && !onboarded && group !== "(onboarding)") {
     return <Redirect href="/(onboarding)/profileSetup" />;
   }
 
-  // 🚫 Logged-in & onboarded → block auth + onboarding
+  // 🚫 Logged-in & onboarded → block auth/onboarding
   if (
     user &&
     onboarded &&

@@ -103,28 +103,41 @@ export default function Boost({
      COOLDOWN TIMER
   ---------------------------------------------------- */
   useEffect(() => {
-    let iv: any = null;
+  let iv: any = null;
 
-    (async () => {
-      const lastMs = await parseLastResetToMs(
-        boostSafe?.lastReset
-      );
+  const DAY = 86400000;
 
-      const DAY = 86400000;
+  const lastMs = boostSafe?.lastReset
+    ? new Date(boostSafe.lastReset).getTime()
+    : 0;
 
-      const update = () => {
-        if (!mountedRef.current) return;
-        setCooldownMs(
-          Math.max(0, DAY - (Date.now() - lastMs))
-        );
-      };
+  const update = () => {
+    if (!mountedRef.current) return;
 
-      update();
-      iv = setInterval(update, 30000);
-    })();
+    const diff = Date.now() - lastMs;
+    const remainingMs = Math.max(0, DAY - diff);
 
-    return () => iv && clearInterval(iv);
-  }, [boostSafe?.lastReset]);
+    setCooldownMs(remainingMs);
+
+    // 🔥 AUTO RESET AFTER 24H
+    if (remainingMs === 0 && boostSafe?.usedToday === 3) {
+      applyBoostClaim({
+        reward: 0,
+        boost: {
+          user_id: boost!.user_id,
+          used_today: 0,
+          last_reset: new Date().toISOString(),
+          balance: boost!.balance,
+        },
+      });
+    }
+  };
+
+  update();
+  iv = setInterval(update, 30000);
+
+  return () => iv && clearInterval(iv);
+}, [boostSafe?.lastReset, boostSafe?.usedToday]);
 
   /* ----------------------------------------------------
      WATCH AD HANDLER (FIXED)
@@ -132,52 +145,51 @@ export default function Boost({
   const usedToday = boostSafe?.usedToday ?? 0;
   const remaining = Math.max(0, 3 - usedToday);
 
-  const handleWatchAd = async () => {
-    if (loadingRef.current) return;
+ const handleWatchAd = async () => {
+  if (loadingRef.current) return;
 
-    setMessage("");
-    setLoading(true);
-    loadingRef.current = true;
+  setMessage("");
+  setLoading(true);
+  loadingRef.current = true;
 
-    try {
-      const user = await getCurrentUser();
-      if (!user) {
-        setMessage("Login required.");
-        return;
-      }
+  try {
+    const user = await getCurrentUser();
+    if (!user) {
+      setMessage("Login required.");
+      return;
+    }
 
-      if (remaining <= 0) {
-        setMessage("No boosts left today.");
-        return;
-      }
+    if (remaining <= 0) {
+      setMessage("No boosts left today.");
+      return;
+    }
 
-      // 🔥 SHOW AD FIRST
-      await showInterstitial();
+    // 🔥 SHOW AD FIRST
+    await showInterstitial();
 
-      // ✅ THEN APPLY BOOST
-      const reward = await claimBoostReward(user.id);
-
+    // ✅ CLAIM ONCE
     const res = await claimBoostReward(user.id);
 
-if (!res || res.reward <= 0 || !res.boost) {
-  setMessage("Boost failed. Please try again.");
-  return;
-}
-
-applyBoostClaim(res);
-setMessage(`+${res.reward.toFixed(1)} VAD added!`);
-
-
-    } catch (err) {
-      console.log("Boost ad failed:", err);
-      setMessage("Ad not available. Try again later.");
-    } finally {
-      if (mountedRef.current) {
-        setLoading(false);
-        loadingRef.current = false;
-      }
+    if (!res || res.reward <= 0 || !res.boost) {
+      setMessage("Boost failed. Please try again.");
+      return;
     }
-  };
+
+    // ✅ APPLY LOCALLY (NO REFRESH NEEDED)
+    applyBoostClaim(res);
+
+    setMessage(`+${res.reward.toFixed(1)} VAD added!`);
+  } catch (err) {
+    console.log("Boost ad failed:", err);
+    setMessage("Ad not available. Try again later.");
+  } finally {
+    if (mountedRef.current) {
+      setLoading(false);
+      loadingRef.current = false;
+    }
+  }
+};
+
 
   const progressLabel = useMemo(() => {
     return remaining === 0

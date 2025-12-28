@@ -10,7 +10,7 @@ import {
 } from "../services/user";
 
 /* ------------------------------------------------------------
-   RAW DB TYPES
+   TYPES
 ------------------------------------------------------------ */
 
 type RawProfileRow = {
@@ -107,30 +107,6 @@ function normalizeBoost(b: RawBoostRow | null) {
 }
 
 /* ------------------------------------------------------------
-   LIVE BALANCE
------------------------------------------------------------- */
-
-function computeDisplayBalanceFromMining(mining: MiningData | null) {
-  if (!mining) return 0;
-
-  const base = mining.balance;
-
-  if (!mining.miningActive || !mining.lastStart) return base;
-
-  const now = Date.now();
-  const startMs = new Date(mining.lastStart).getTime();
-  const elapsedSeconds = Math.max(0, Math.floor((now - startMs) / 1000));
-
-  const MAX_SECONDS = 24 * 3600;
-  const DAILY_MAX = 4.8;
-
-  const capped = Math.min(elapsedSeconds, MAX_SECONDS);
-  const sessionGain = (capped / MAX_SECONDS) * DAILY_MAX;
-
-  return base + sessionGain;
-}
-
-/* ------------------------------------------------------------
    HOOK
 ------------------------------------------------------------ */
 
@@ -145,31 +121,8 @@ export function useMining() {
   const [isLoading, setIsLoading] = useState(true);
 
   const channelsRef = useRef<any[]>([]);
-  
-  
-  /* ------------------------------------------------------------
-     APPLY HELPERS
-  ------------------------------------------------------------ */
+  const miningDataRef = useRef<MiningData | null>(null);
 
-  const applyDailyClaim = useCallback(
-    (data: { reward: number; dailyClaim: RawDailyRow }) => {
-      setDailyClaim(data.dailyClaim);
-      setMiningData((prev) =>
-        prev ? { ...prev, balance: prev.balance + data.reward } : prev
-      );
-    },
-    []
-  );
-
-  const applyBoostClaim = useCallback(
-    (data: { reward: number; boost: RawBoostRow }) => {
-      setBoost(normalizeBoost(data.boost));
-      setMiningData((prev) =>
-        prev ? { ...prev, balance: prev.balance + data.reward } : prev
-      );
-    },
-    []
-  );
 
   /* ------------------------------------------------------------
      INITIAL LOAD + REALTIME
@@ -189,20 +142,16 @@ export function useMining() {
 
       const uid = data.user.id;
 
-      try {
-        const combined = await getUserData(uid);
-        if (!mounted) return;
+      const combined = await getUserData(uid);
+      if (!mounted) return;
 
-        setUserProfile(normalizeProfile(combined?.profile ?? null));
-        setMiningData(normalizeMining(combined?.mining ?? null));
-        setDailyClaim(combined?.dailyClaim ?? null);
-        setBoost(normalizeBoost(combined?.boost ?? null));
-        setWatchEarn(combined?.watchEarn ?? null);
-      } finally {
-        setIsLoading(false);
-      }
+      setUserProfile(normalizeProfile(combined?.profile ?? null));
+      setMiningData(normalizeMining(combined?.mining ?? null));
+      setDailyClaim(combined?.dailyClaim ?? null);
+      setBoost(normalizeBoost(combined?.boost ?? null));
+      setWatchEarn(combined?.watchEarn ?? null);
 
-      /* ---------------- REALTIME ---------------- */
+      setIsLoading(false);
 
       const miningChannel = supabase
         .channel(`mining:${uid}`)
@@ -219,57 +168,8 @@ export function useMining() {
         )
         .subscribe();
 
-      const dailyChannel = supabase
-        .channel(`daily:${uid}`)
-        .on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
-            table: "daily_claim_data",
-            filter: `user_id=eq.${uid}`,
-          },
-          (payload) => setDailyClaim(payload.new as RawDailyRow)
-        )
-        .subscribe();
-
-      const boostChannel = supabase
-        .channel(`boost:${uid}`)
-        .on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
-            table: "boost_data",
-            filter: `user_id=eq.${uid}`,
-          },
-          (payload) =>
-            setBoost(normalizeBoost(payload.new as RawBoostRow))
-        )
-        .subscribe();
-
-      const watchChannel = supabase
-        .channel(`watch:${uid}`)
-        .on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
-            table: "watch_earn_data",
-            filter: `user_id=eq.${uid}`,
-          },
-          (payload) => setWatchEarn(payload.new as RawWatchRow)
-        )
-        .subscribe();
-
-      channelsRef.current = [
-        miningChannel,
-        dailyChannel,
-        boostChannel,
-        watchChannel,
-      ];
+      channelsRef.current = [miningChannel];
     })();
-
 
     return () => {
       mounted = false;
@@ -284,27 +184,79 @@ export function useMining() {
 
   const start = useCallback(async () => {
     const { data } = await supabase.auth.getUser();
-    if (data.user) await startMining(data.user.id);
+    if (!data.user) return;
+    await startMining(data.user.id);
   }, []);
 
   const stop = useCallback(async () => {
     const { data } = await supabase.auth.getUser();
-    if (data.user) await stopMining(data.user.id);
+    if (!data.user) return;
+    await stopMining(data.user.id);
   }, []);
 
-  const claim = useCallback(async () => {
-    const { data } = await supabase.auth.getUser();
-    if (!data.user) return 0;
-    return claimMiningReward(data.user.id);
-  }, []);
+  /**
+   * ✅ FIXED CLAIM (MANUAL, SAFE)
+   */
+const claim = useCallback(async () => {
+  const { data } = await supabase.auth.getUser();
+  if (!data.user) return 0;
 
-  const getLiveBalance = useCallback(
-    () => computeDisplayBalanceFromMining(miningData),
-    [miningData]
-  );
+  const uid = data.user.id;
 
-    /* ------------------------------------------------------------
-     MANUAL REFRESH (PULL TO REFRESH / BUTTON)
+  // 🔥 Call backend claim
+  const reward = await claimMiningReward(uid);
+
+  // ❌ nothing earned → do nothing
+  if (reward <= 0) return 0;
+
+  const now = new Date().toISOString();
+
+  // ✅ HARD RESET SESSION LOCALLY (prevents stale timer & dead start)
+  setMiningData((prev) => {
+    if (!prev) return prev;
+
+    const next = {
+      ...prev,
+      miningActive: false,
+      lastStart: null,       // 🔥 CRITICAL
+      lastClaim: now,
+      balance: prev.balance + reward,
+    };
+
+    // 🔒 keep ref in sync with state
+    miningDataRef.current = next;
+
+    return next;
+  });
+
+  return reward;
+}, []);
+
+
+const applyBoostClaim = useCallback(
+  (res: { reward: number; boost: RawBoostRow }) => {
+    setBoost({
+      user_id: res.boost.user_id,
+      used_today: res.boost.used_today,
+      last_reset: res.boost.last_reset,
+      balance: res.boost.balance,
+    });
+
+    // 🔥 ALSO ADD REWARD TO MINING BALANCE
+    setMiningData((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        balance: prev.balance + res.reward,
+      };
+    });
+  },
+  []
+);
+
+
+  /* ------------------------------------------------------------
+     MANUAL REFRESH
   ------------------------------------------------------------ */
 
   const refreshAll = useCallback(async () => {
@@ -313,34 +265,29 @@ export function useMining() {
 
     setIsLoading(true);
 
-    try {
-      const combined = await getUserData(data.user.id);
+    const combined = await getUserData(data.user.id);
 
-      setUserProfile(normalizeProfile(combined?.profile ?? null));
-      setMiningData(normalizeMining(combined?.mining ?? null));
-      setDailyClaim(combined?.dailyClaim ?? null);
-      setBoost(normalizeBoost(combined?.boost ?? null));
-      setWatchEarn(combined?.watchEarn ?? null);
-    } finally {
-      setIsLoading(false);
-    }
+    setUserProfile(normalizeProfile(combined?.profile ?? null));
+    setMiningData(normalizeMining(combined?.mining ?? null));
+    setDailyClaim(combined?.dailyClaim ?? null);
+    setBoost(normalizeBoost(combined?.boost ?? null));
+    setWatchEarn(combined?.watchEarn ?? null);
+
+    setIsLoading(false);
   }, []);
 
-
-  return {
-    miningData,
-    userProfile,
-    dailyClaim,
-    boost,
-    watchEarn,
-    isLoading,
-    start,
-    stop,
-    claim,
-    getLiveBalance,
-    applyDailyClaim,
-    applyBoostClaim,
-    refreshAll, // ✅ ADD THIS
-  };
+return {
+  miningData,
+  userProfile,
+  dailyClaim,
+  boost,
+  watchEarn,
+  isLoading,
+  start,
+  stop,
+  claim,
+  applyBoostClaim, // ✅ ADD THIS
+  refreshAll,
+};
 
 }

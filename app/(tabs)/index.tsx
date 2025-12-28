@@ -1,4 +1,3 @@
-// app/(tabs)/index.tsx
 import React, { useEffect, useRef, useState, useMemo } from "react";
 import {
   View,
@@ -6,17 +5,15 @@ import {
   Pressable,
   ActivityIndicator,
   StyleSheet,
-  Alert,
   Animated,
   Image,
+  RefreshControl,
 } from "react-native";
 
 import { MotiText } from "moti";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { RefreshControl } from "react-native";
-
 
 import { useMining } from "../../hooks/useMining";
 import DailyClaim from "../../components/DailyClaim";
@@ -24,6 +21,12 @@ import Boost from "../../components/Boost";
 import WatchEarn from "../../components/WatchEarn";
 import News from "../../components/News";
 import AdBanner from "../../components/AdBanner";
+import ClaimSuccessModal from "../../components/ClaimSuccessModal";//
+import {
+  initNotifications,
+  notifyMiningComplete,
+} from "../../utils/notifications";
+
 
 /* ============================================================
    CONSTANTS
@@ -84,14 +87,23 @@ const MiniAction = ({ icon, label, onPress }: any) => (
    MAIN PAGE
 =============================================================== */
 export default function Page() {
+  const [screenReady, setScreenReady] = useState(false);
+
+  useEffect(() => {
+    const id = setTimeout(() => setScreenReady(true), 300);
+    return () => clearTimeout(id);
+  }, []);
+
+  const notifiedRef = useRef(false);
   const insets = useSafeAreaInsets();
+
   const {
     miningData,
     isLoading,
     start,
     stop,
     claim,
-   refreshAll
+    refreshAll,
   } = useMining();
 
   const miningActive = miningData?.miningActive ?? false;
@@ -103,34 +115,33 @@ export default function Page() {
   const spinValue = useRef(new Animated.Value(0)).current;
   const scrollY = useRef(new Animated.Value(0)).current;
   const shimmerX = useRef(new Animated.Value(0)).current;
+  const claimPulse = useRef(new Animated.Value(1)).current;
 
-  const [claimedBalance, setClaimedBalance] = useState<number | null>(null);
   const [sessionElapsed, setSessionElapsed] = useState(0);
   const [sessionBalance, setSessionBalance] = useState(0);
   const [timeLeft, setTimeLeft] = useState(DAY_SECONDS);
-  
   const [refreshing, setRefreshing] = useState(false);
-
 
   const [dailyOpen, setDailyOpen] = useState(false);
   const [boostOpen, setBoostOpen] = useState(false);
   const [watchOpen, setWatchOpen] = useState(false);
   const [newsOpen, setNewsOpen] = useState(false);
 
+  const sessionFinished = sessionElapsed >= DAY_SECONDS;
+  const canClaim = sessionFinished;
+  const canStop = miningActive && !sessionFinished;
+
   const progress = useMemo(
     () => (miningActive ? Math.min(1, sessionElapsed / DAY_SECONDS) : 0),
     [miningActive, sessionElapsed]
   );
 
-  const canClaim = miningActive && sessionElapsed >= DAY_SECONDS;
   const tier = getTier(miningData?.balance ?? 0);
- 
-  const onRefresh = async () => {
-  setRefreshing(true);
-  await refreshAll();
-  setRefreshing(false);
-};
- 
+
+  const [claimSuccess, setClaimSuccess] = useState(false);
+const [claimedAmount, setClaimedAmount] = useState(0);
+
+
   /* ============================================================
      EFFECTS
 =============================================================== */
@@ -138,21 +149,19 @@ export default function Page() {
     miningDataRef.current = miningData;
   }, [miningData]);
 
-useEffect(() => {
-  if (miningData && typeof miningData.balance === "number") {
-    setClaimedBalance(miningData.balance);
-  }
-}, [miningData]);
 
 
   useEffect(() => {
-    if (claimedBalance === null) return;
+    if (typeof miningData?.balance !== "number") return;
+
+    animatedBalance.stopAnimation();
+
     Animated.timing(animatedBalance, {
-      toValue: claimedBalance,
+      toValue: miningData.balance,
       duration: 400,
       useNativeDriver: false,
     }).start();
-  }, [claimedBalance]);
+  }, [miningData?.balance]);
 
   useEffect(() => {
     Animated.loop(
@@ -164,54 +173,80 @@ useEffect(() => {
     ).start();
   }, []);
 
-  useEffect(() => {
-    const id = setInterval(() => {
-      const md = miningDataRef.current;
-      if (!md?.miningActive || !md?.lastStart) {
-        setSessionElapsed(0);
-        setSessionBalance(0);
-        setTimeLeft(DAY_SECONDS);
-        return;
-      }
-
-      const elapsed = Math.min(
-        Math.floor((Date.now() - new Date(md.lastStart).getTime()) / 1000),
-        DAY_SECONDS
-      );
-
-      setSessionElapsed(elapsed);
-      setSessionBalance(elapsed * PER_SECOND);
-      setTimeLeft(DAY_SECONDS - elapsed);
-    }, 1000);
-
-    return () => clearInterval(id);
-  }, []);
-
 useEffect(() => {
-  let loop: Animated.CompositeAnimation | null = null;
+  const id = setInterval(() => {
+    const md = miningDataRef.current;
+    if (!md?.miningActive || !md?.lastStart) {
+      notifiedRef.current = false;
+      setSessionElapsed(0);
+      setSessionBalance(0);
+      setTimeLeft(DAY_SECONDS);
+      return;
+    }
 
-  if (miningActive) {
-    spinValue.setValue(0);
+if (!md?.lastStart || isNaN(Date.parse(md.lastStart))) return;
 
-    loop = Animated.loop(
-      Animated.timing(spinValue, {
-        toValue: 1,
-        duration: 3200,
-        useNativeDriver: true,
-      })
-    );
+const elapsed = Math.min(
+  Math.floor((Date.now() - Date.parse(md.lastStart)) / 1000),
+  DAY_SECONDS
+);
 
-    loop.start();
-  } else {
-    spinValue.stopAnimation();
-    spinValue.setValue(0);
-  }
+    setSessionElapsed(elapsed);
+    setSessionBalance(elapsed * PER_SECOND);
+    setTimeLeft(DAY_SECONDS - elapsed);
 
-  return () => {
-    loop?.stop();
-  };
-}, [miningActive]);
+    if (elapsed >= DAY_SECONDS && !notifiedRef.current) {
+      notifiedRef.current = true;
+     // notifyMiningComplete(); // 🔔 PHONE NOTIFICATION
+    }
+  }, 1000);
 
+  return () => clearInterval(id);
+}, []);
+
+
+  useEffect(() => {
+    let loop: Animated.CompositeAnimation | null = null;
+
+    if (miningActive && !sessionFinished) {
+      spinValue.setValue(0);
+      loop = Animated.loop(
+        Animated.timing(spinValue, {
+          toValue: 1,
+          duration: 3200,
+          useNativeDriver: true,
+        })
+      );
+      loop.start();
+    } else {
+      spinValue.stopAnimation();
+      spinValue.setValue(0);
+    }
+
+    return () => loop?.stop();
+  }, [miningActive, sessionFinished]);
+
+  useEffect(() => {
+    if (canClaim) {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(claimPulse, {
+            toValue: 1.08,
+            duration: 600,
+            useNativeDriver: true,
+          }),
+          Animated.timing(claimPulse, {
+            toValue: 1,
+            duration: 600,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    } else {
+      claimPulse.stopAnimation();
+      claimPulse.setValue(1);
+    }
+  }, [canClaim]);
 
   if (isLoading) {
     return (
@@ -232,7 +267,6 @@ useEffect(() => {
     outputRange: ["0deg", "360deg"],
   });
 
-
   /* ============================================================
      RENDER
 =============================================================== */
@@ -249,12 +283,7 @@ useEffect(() => {
           colors={["#24164a", "#0b0614"]}
           style={StyleSheet.absoluteFill}
         />
-        <Pressable onPress={refreshAll} style={{ padding: 6 }}>
-  <Ionicons name="refresh" size={22} color="#8B5CF6" />
-</Pressable>
 
-
-        {/* SHIMMER */}
         <Animated.View
           style={{
             ...StyleSheet.absoluteFillObject,
@@ -280,23 +309,14 @@ useEffect(() => {
             style={styles.logo}
           />
 
-   <View>
-  <Text style={styles.headerTitle}>VAD DEPOT</Text>
-
-  <Text style={styles.headerTagline}>
-    CONTRIBUTE • SECURE • EARN
-  </Text>
-
-  <Text style={styles.headerEarning}>
-    Earn up to <Text style={styles.headerEarningStrong}>4.8 VAD</Text> / 24hrs
-  </Text>
-
-  <Text style={styles.headerIntro}>
-    Proof-of-Stake Network
-  </Text>
-</View>
-
-
+          <View>
+            <Text style={styles.headerTitle}>VAD DEPOT</Text>
+            <Text style={styles.headerTagline}>CONTRIBUTE • SECURE • EARN</Text>
+            <Text style={styles.headerEarning}>
+              Earn up to <Text style={styles.headerEarningStrong}>4.8 VAD</Text> / 24hrs
+            </Text>
+            <Text style={styles.headerIntro}>Proof-of-Stake Network</Text>
+          </View>
 
           <View style={[styles.tierBadge, { borderColor: tier.color }]}>
             <Text style={[styles.tierText, { color: tier.color }]}>
@@ -308,21 +328,24 @@ useEffect(() => {
 
       {/* CONTENT */}
       <Animated.ScrollView
-  contentContainerStyle={{ paddingTop: HEADER_MAX }}
-  refreshControl={
-    <RefreshControl
-      refreshing={refreshing}
-      onRefresh={onRefresh}
-      tintColor="#8B5CF6"
-    />
-  }
-  onScroll={Animated.event(
-    [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-    { useNativeDriver: false }
-  )}
-  scrollEventThrottle={16}
->
-
+        contentContainerStyle={{ paddingTop: HEADER_MAX }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={async () => {
+              setRefreshing(true);
+              await refreshAll();
+              setRefreshing(false);
+            }}
+            tintColor="#8B5CF6"
+          />
+        }
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: false }
+        )}
+        scrollEventThrottle={16}
+      >
         {/* BALANCE */}
         <View style={styles.balanceWrap}>
           <Text style={styles.label}>Total Balance</Text>
@@ -331,19 +354,50 @@ useEffect(() => {
 
         {/* PRIMARY ACTIONS */}
         <View style={styles.primaryActions}>
-          <Pressable style={styles.primaryBtn} onPress={() => miningActive ? stop() : start()}>
-            <Ionicons name={miningActive ? "pause" : "play"} size={40} color="#fff" />
-            <Text style={styles.primaryText}>{miningActive ? "Stop" : "Mine"}</Text>
-          </Pressable>
+          {!miningActive && (
+            <Pressable style={styles.primaryBtn} onPress={start}>
+              <Ionicons name="play" size={40} color="#fff" />
+              <Text style={styles.primaryText}>Mine</Text>
+            </Pressable>
+          )}
 
-          <Pressable
-            style={[styles.primaryBtn, !canClaim && { opacity: 0.45 }]}
-            onPress={claim}
-            disabled={!canClaim}
-          >
-            <Ionicons name="gift" size={40} color="#fff" />
-            <Text style={styles.primaryText}>Claim</Text>
-          </Pressable>
+          {miningActive && (
+            <Pressable
+              style={[styles.primaryBtn, !canStop && { opacity: 0.4 }]}
+              disabled={!canStop}
+              onPress={stop}
+            >
+              <Ionicons name="pause" size={40} color="#fff" />
+              <Text style={styles.primaryText}>Stop</Text>
+            </Pressable>
+          )}
+
+          <Animated.View style={{ flex: 1, transform: [{ scale: claimPulse }] }}>
+            <Pressable
+              style={[
+                styles.primaryBtn,
+                canClaim
+                  ? { backgroundColor: "#22C55E" }
+                  : { opacity: 0.4 },
+              ]}
+              disabled={!canClaim}
+              onPress={async () => {
+  const amount = DAILY_MAX;
+
+  await claim();           // backend updates Supabase
+  await refreshAll();      // fetch updated balance
+
+  setClaimedAmount(amount);
+  setClaimSuccess(true);   // 🎉 POPUP
+}}
+
+            >
+              <Ionicons name="gift" size={40} color="#fff" />
+              <Text style={styles.primaryText}>
+                {canClaim ? "Claim Rewards" : "Claim"}
+              </Text>
+            </Pressable>
+          </Animated.View>
         </View>
 
         {/* SESSION CARD */}
@@ -363,8 +417,8 @@ useEffect(() => {
           </View>
 
           <Text style={styles.progressMeta}>
-            {canClaim
-              ? "✅ Claim available"
+            {sessionFinished
+              ? "🎉 Mining complete — claim your VAD"
               : `⏳ ${Math.floor(timeLeft / 3600)}h ${Math.floor(
                   (timeLeft % 3600) / 60
                 )}m remaining`}
@@ -389,17 +443,24 @@ useEffect(() => {
           </Text>
         </Pressable>
 
-        {/* AD */}
         <View style={styles.newsAdWrap}>
           <AdBanner />
         </View>
       </Animated.ScrollView>
 
-      {/* MODALS */}
       {dailyOpen && <DailyClaim visible onClose={() => setDailyOpen(false)} />}
       {boostOpen && <Boost visible onClose={() => setBoostOpen(false)} />}
       {watchOpen && <WatchEarn visible onClose={() => setWatchOpen(false)} />}
       {newsOpen && <News visible onClose={() => setNewsOpen(false)} />}
+    
+    <ClaimSuccessModal
+  visible={claimSuccess}
+  amount={claimedAmount}
+  total={miningData?.balance ?? 0}
+  onClose={() => setClaimSuccess(false)}
+/>
+
+        
     </View>
   );
 }
@@ -431,7 +492,6 @@ const styles = StyleSheet.create({
   logo: { width: 44, height: 44, borderRadius: 12 },
 
   headerTitle: { color: "#fff", fontSize: 20, fontWeight: "900" },
-  headerSub: { color: "#bfc7df", fontSize: 12 },
 
   tierBadge: {
     borderWidth: 1,
@@ -517,36 +577,32 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.05)",
   },
 
- headerTagline: {
-  marginTop: 6,
-  color: "#8B5CF6",
-  fontSize: 13,
-  fontWeight: "900",
-  letterSpacing: 1.2,
-  textTransform: "uppercase",
-},
+  headerTagline: {
+    marginTop: 6,
+    color: "#8B5CF6",
+    fontSize: 13,
+    fontWeight: "900",
+    letterSpacing: 1.2,
+    textTransform: "uppercase",
+  },
 
-headerEarning: {
-  marginTop: 4,
-  color: "#C4B5FD",
-  fontSize: 12,
-  fontWeight: "700",
-},
+  headerEarning: {
+    marginTop: 4,
+    color: "#C4B5FD",
+    fontSize: 12,
+    fontWeight: "700",
+  },
 
-headerEarningStrong: {
-  color: "#8B5CF6",
-  fontWeight: "900",
-},
+  headerEarningStrong: {
+    color: "#8B5CF6",
+    fontWeight: "900",
+  },
 
-headerIntro: {
-  marginTop: 2,
-  color: "#9FA8C7",
-  fontSize: 11,
-  fontWeight: "600",
-  letterSpacing: 0.4,
-},
-
-
-
+  headerIntro: {
+    marginTop: 2,
+    color: "#9FA8C7",
+    fontSize: 11,
+    fontWeight: "600",
+    letterSpacing: 0.4,
+  },
 });
-
