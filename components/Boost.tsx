@@ -210,7 +210,7 @@ export default function Boost({
           </Text>
 
           <View style={styles.rewardBox}>
-            <Text style={styles.reward}>+0.5 VAD</Text>
+            <Text style={styles.reward}>+0.1 VAD</Text>
             <Text style={styles.limit}>{progressLabel}</Text>
           </View>
 

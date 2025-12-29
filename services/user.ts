@@ -303,7 +303,7 @@ export async function claimBoostReward(uid: string) {
 
   if (boost.used_today >= 3) return 0;
 
-  const REWARD = 0.5;
+  const REWARD = 0.1;
 
   const [updateMining, updateBoost] = await Promise.all([
     supabase
@@ -424,7 +424,7 @@ export async function claimWatchEarnReward(uid: string) {
   const watch = wRes.data as any;
   const mining = mRes.data as any;
 
-  const REWARD = 0.25;
+  const REWARD = 0.01;
 
   const [uMining, uWatch] = await Promise.all([
     supabase

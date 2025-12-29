@@ -174,7 +174,7 @@ export default function WatchEarn({
           </Text>
 
           <View style={styles.rewardBox}>
-            <Text style={styles.reward}>+0.25 VAD</Text>
+            <Text style={styles.reward}>+0.01 VAD</Text>
             <Text style={styles.limit}>Per ad</Text>
           </View>
 

@@ -21,11 +21,11 @@ import Boost from "../../components/Boost";
 import WatchEarn from "../../components/WatchEarn";
 import News from "../../components/News";
 import AdBanner from "../../components/AdBanner";
-import ClaimSuccessModal from "../../components/ClaimSuccessModal";//
-import {
-  initNotifications,
-  notifyMiningComplete,
-} from "../../utils/notifications";
+import ClaimSuccessModal from "../../components/ClaimSuccessModal";
+//import {
+  //initNotifications,
+  //notifyMiningComplete,
+//} from "../../utils/notifications.ts";
 
 
 /* ============================================================
@@ -152,13 +152,13 @@ const [claimedAmount, setClaimedAmount] = useState(0);
 useEffect(() => {
   if (!screenReady) return;
 
-  (async () => {
-    try {
-      await initNotifications();
-    } catch {
-      console.warn("Notifications disabled");
-    }
-  })();
+  //(async () => {
+    //try {
+      //await //initNotifications();
+    //} catch {
+      //console.warn("Notifications disabled");
+    //}
+  //})();
 }, [screenReady]);
 
 

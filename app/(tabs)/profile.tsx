@@ -1,3 +1,4 @@
+// app/(tabs)/profile.tsx
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import {
   View,
@@ -14,6 +15,8 @@ import * as Clipboard from "expo-clipboard";
 import { supabase } from "../../supabase/client";
 import { getUserData } from "../../services/user";
 import { useRouter } from "expo-router";
+import ReferralLeaderboardModal from "../../components/ReferralLeaderboardModal";
+
 
 export default function Profile() {
   return <ProfileScreen />;
@@ -21,18 +24,19 @@ export default function Profile() {
 
 function ProfileScreen() {
   const router = useRouter();
+  const fade = useRef(new Animated.Value(0)).current;
 
   const [uid, setUid] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<any | null>(null);
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
 
-  const fade = useRef(new Animated.Value(0)).current;
 
-  /* ---------- Fade animation ---------- */
+  /* ---------- Fade ---------- */
   useEffect(() => {
     Animated.timing(fade, {
       toValue: 1,
-      duration: 300,
+      duration: 260,
       easing: Easing.out(Easing.ease),
       useNativeDriver: true,
     }).start();
@@ -41,39 +45,31 @@ function ProfileScreen() {
   /* ---------- Auth ---------- */
   useEffect(() => {
     let mounted = true;
-
     supabase.auth.getUser().then(({ data }) => {
-      if (!mounted) return;
-      setUid(data?.user?.id ?? null);
+      if (mounted) setUid(data?.user?.id ?? null);
     });
-
     return () => {
       mounted = false;
     };
   }, []);
 
-  /* ---------- Fetch user data ---------- */
+  /* ---------- Load data ---------- */
   useEffect(() => {
-    if (!uid) {
-      setLoading(false);
-      return;
-    }
+    if (!uid) return;
 
     let active = true;
 
-    const load = async () => {
+    (async () => {
       try {
         setLoading(true);
-        const response = await getUserData(uid);
-        if (active) setData(response);
+        const res = await getUserData(uid);
+        if (active) setData(res);
       } catch (e) {
         console.error("Profile load error:", e);
       } finally {
         if (active) setLoading(false);
       }
-    };
-
-    load();
+    })();
 
     return () => {
       active = false;
@@ -95,16 +91,7 @@ function ProfileScreen() {
     ]);
   }, []);
 
-  /* ---------- Guards ---------- */
-  if (!uid) {
-    return (
-      <View style={styles.centered}>
-        <Text style={styles.centerText}>User not logged in.</Text>
-      </View>
-    );
-  }
-
-  if (loading || !data) {
+  if (!uid || loading || !data) {
     return (
       <View style={styles.centered}>
         <Text style={styles.centerText}>Loading profile…</Text>
@@ -115,28 +102,17 @@ function ProfileScreen() {
   /* ---------- Safe mapping ---------- */
   const profile = data.profile ?? {};
   const mining = data.mining ?? {};
-  const referrals = data.referrals ?? {};
-  const dailyClaim = data.dailyClaim ?? {};
+  const daily = data.dailyClaim ?? {};
   const boost = data.boost ?? {};
-  const watchEarn = data.watchEarn ?? {};
+  const watch = data.watchEarn ?? {};
+  const referrals = data.referrals ?? {};
 
-  const username = profile.username ?? "Unknown User";
-  const referralCode = profile.referral_code ?? "";
-  const referredBy = profile.referred_by ?? "—";
-
-  const miningBalance = mining.balance ?? 0;
-  const dailyTotal = dailyClaim.total_earned ?? 0;
-  const boostBalance = boost.balance ?? 0;
-  const watchEarnTotal = watchEarn.total_earned ?? 0;
-  const totalReferrals = referrals.total_referred ?? 0;
-
-  const totalEarned =
-    miningBalance + dailyTotal + boostBalance + watchEarnTotal;
+  const totalBalance = mining.balance ?? 0;
 
   /* ---------- Copy referral ---------- */
   const copyCode = async () => {
-    if (!referralCode) return;
-    await Clipboard.setStringAsync(referralCode);
+    if (!profile.referral_code) return;
+    await Clipboard.setStringAsync(profile.referral_code);
     Alert.alert("Copied", "Referral code copied.");
   };
 
@@ -144,48 +120,71 @@ function ProfileScreen() {
     <Animated.View style={[styles.container, { opacity: fade }]}>
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={styles.scroll}
       >
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.avatar}>
             <Ionicons name="person" size={44} color="#A78BFA" />
           </View>
-          <Text style={styles.username}>{username}</Text>
-        </View>
-
-        {/* Total Balance */}
-        <View style={styles.balanceCard}>
-          <Text style={styles.balanceLabel}>Total VAD Balance</Text>
-          <Text style={styles.balanceValue}>
-            {totalEarned.toFixed(4)} VAD
+          <Text style={styles.username}>
+            {profile.username || "Unnamed User"}
           </Text>
         </View>
 
-        {/* Earnings Breakdown */}
-        <View style={styles.grid}>
-          <Stat icon="hardware-chip" label="Mining" value={miningBalance} />
-          <Stat icon="calendar" label="Daily" value={dailyTotal} />
-          <Stat icon="flash" label="Boost" value={boostBalance} />
-          <Stat icon="play-circle" label="Watch" value={watchEarnTotal} />
+        {/* TOTAL BALANCE */}
+        <View style={styles.totalCard}>
+          <Text style={styles.totalLabel}>Total VAD Balance</Text>
+          <Text style={styles.totalValue}>
+            {totalBalance.toFixed(4)} VAD
+          </Text>
+          <Text style={styles.totalHint}>
+            Includes mining, daily, boost & watch rewards
+          </Text>
         </View>
 
-        {/* Referral Code */}
+        {/* STATS */}
+        <Text style={styles.sectionTitle}>Earning Activity</Text>
+
+        <View style={styles.grid}>
+          <Stat icon="hardware-chip" label="Mining Earned" value={mining.balance ?? 0} />
+          <Stat icon="calendar" label="Daily Earned" value={daily.total_earned ?? 0} />
+          <Stat icon="flash" label="Boost Earned" value={boost.balance ?? 0} />
+          <Stat icon="play-circle" label="Watch Earned" value={watch.total_earned ?? 0} />
+        </View>
+
+        {/* Referral */}
         <Section title="Referral Code" icon="gift">
           <View style={styles.row}>
-            <Text style={styles.refCode}>{referralCode}</Text>
+            <Text style={styles.refCode}>{profile.referral_code}</Text>
             <Pressable onPress={copyCode} style={styles.copyBtn}>
               <Ionicons name="copy" size={16} color="#000" />
             </Pressable>
           </View>
         </Section>
 
-        {/* Referral Info */}
-        <Section title="Referral Stats" icon="people">
-          <InfoRow label="Referred By" value={referredBy} />
+       <Section title="Referrals" icon="people">
+  <InfoRow label="Referred By" value={profile.referred_by ?? "—"} />
+  <InfoRow
+    label="Total Referrals"
+    value={`${referrals.total_referred ?? 0} users`}
+  />
+
+  <Pressable
+    style={styles.leaderboardBtn}
+    onPress={() => setShowLeaderboard(true)}
+  >
+    <Ionicons name="trophy" size={16} color="#000" />
+    <Text style={styles.leaderboardText}>View Leaderboard</Text>
+  </Pressable>
+</Section>
+
+
+        <Section title="Referrals" icon="people">
+          <InfoRow label="Referred By" value={profile.referred_by ?? "—"} />
           <InfoRow
             label="Total Referrals"
-            value={`${totalReferrals} users`}
+            value={`${referrals.total_referred ?? 0} users`}
           />
         </Section>
 
@@ -194,22 +193,22 @@ function ProfileScreen() {
           <Ionicons name="log-out-outline" size={18} color="#fff" />
           <Text style={styles.logoutText}>Log out</Text>
         </Pressable>
+
+        <ReferralLeaderboardModal
+  visible={showLeaderboard}
+  onClose={() => setShowLeaderboard(false)}
+  userId={uid}
+/>
       </ScrollView>
     </Animated.View>
+
+    
   );
 }
 
-/* ---------- Small Components ---------- */
+/* ---------- UI helpers ---------- */
 
-function Stat({
-  icon,
-  label,
-  value,
-}: {
-  icon: keyof typeof Ionicons.glyphMap;
-  label: string;
-  value: number;
-}) {
+function Stat({ icon, label, value }: any) {
   return (
     <View style={styles.statCard}>
       <Ionicons name={icon} size={22} color="#A78BFA" />
@@ -219,27 +218,21 @@ function Stat({
   );
 }
 
-function Section({
-  title,
-  icon,
-  children,
-}: {
-  title: string;
-  icon: keyof typeof Ionicons.glyphMap;
-  children: React.ReactNode;
-}) {
+function Section({ title, icon, children }: any) {
   return (
     <View style={styles.section}>
       <View style={styles.sectionHeader}>
         <Ionicons name={icon} size={16} color="#9FA8C7" />
-        <Text style={styles.sectionTitle}>{title}</Text>
+        <Text style={styles.sectionHeaderText}>{title}</Text>
+
+        
       </View>
       {children}
     </View>
   );
 }
 
-function InfoRow({ label, value }: { label: string; value: string }) {
+function InfoRow({ label, value }: any) {
   return (
     <View style={styles.infoRow}>
       <Text style={styles.infoLabel}>{label}</Text>
@@ -249,30 +242,14 @@ function InfoRow({ label, value }: { label: string; value: string }) {
 }
 
 /* ---------- Styles ---------- */
+
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#050814",
-  },
-  scrollContent: {
-    paddingHorizontal: 20,
-    paddingBottom: 120, // ✅ prevents bottom tab overlap
-  },
-  centered: {
-    flex: 1,
-    backgroundColor: "#050814",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  centerText: {
-    color: "#fff",
-    fontSize: 16,
-  },
-  header: {
-    alignItems: "center",
-    marginTop: 8,
-    marginBottom: 18,
-  },
+  container: { flex: 1, backgroundColor: "#050814" },
+  scroll: { paddingHorizontal: 20, paddingBottom: 120 },
+  centered: { flex: 1, justifyContent: "center", alignItems: "center" },
+  centerText: { color: "#fff" },
+
+  header: { alignItems: "center", marginBottom: 20 },
   avatar: {
     width: 78,
     height: 78,
@@ -289,25 +266,32 @@ const styles = StyleSheet.create({
     fontWeight: "900",
     marginTop: 10,
   },
-  balanceCard: {
+
+  totalCard: {
     backgroundColor: "#0B1020",
-    borderRadius: 22,
-    padding: 22,
+    borderRadius: 24,
+    padding: 24,
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "#22C55E55",
-    marginBottom: 18,
+    borderColor: "#22C55E66",
+    marginBottom: 22,
   },
-  balanceLabel: {
-    color: "#9FA8C7",
-    fontSize: 12,
-  },
-  balanceValue: {
+  totalLabel: { color: "#9FA8C7", fontSize: 13 },
+  totalValue: {
     color: "#22C55E",
-    fontSize: 28,
+    fontSize: 30,
     fontWeight: "900",
-    marginTop: 6,
+    marginVertical: 6,
   },
+  totalHint: { color: "#64748B", fontSize: 11 },
+
+  sectionTitle: {
+    color: "#9FA8C7",
+    fontSize: 14,
+    fontWeight: "800",
+    marginBottom: 10,
+  },
+
   grid: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -323,16 +307,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#1E293B",
   },
-  statLabel: {
-    color: "#9FA8C7",
-    fontSize: 12,
-    marginTop: 6,
-  },
-  statValue: {
-    color: "#fff",
-    fontSize: 14,
-    fontWeight: "800",
-  },
+  statLabel: { color: "#9FA8C7", fontSize: 12, marginTop: 6 },
+  statValue: { color: "#fff", fontSize: 14, fontWeight: "800" },
+
   section: {
     backgroundColor: "#0B1020",
     borderRadius: 18,
@@ -341,46 +318,25 @@ const styles = StyleSheet.create({
     borderColor: "#1E293B",
     marginBottom: 16,
   },
-  sectionHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    marginBottom: 10,
-  },
-  sectionTitle: {
+  sectionHeader: { flexDirection: "row", alignItems: "center", gap: 6 },
+  sectionHeaderText: {
     color: "#9FA8C7",
     fontSize: 13,
     fontWeight: "700",
   },
-  row: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  refCode: {
-    color: "#fff",
-    fontSize: 15,
-    fontWeight: "900",
-  },
+
+  row: { flexDirection: "row", justifyContent: "space-between" },
+  refCode: { color: "#fff", fontWeight: "900", fontSize: 15 },
   copyBtn: {
     backgroundColor: "#FACC15",
     padding: 8,
     borderRadius: 10,
   },
-  infoRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: 6,
-  },
-  infoLabel: {
-    color: "#9FA8C7",
-    fontSize: 12,
-  },
-  infoValue: {
-    color: "#fff",
-    fontSize: 14,
-    fontWeight: "700",
-  },
+
+  infoRow: { flexDirection: "row", justifyContent: "space-between", marginTop: 6 },
+  infoLabel: { color: "#9FA8C7", fontSize: 12 },
+  infoValue: { color: "#fff", fontWeight: "700" },
+
   logoutBtn: {
     marginTop: 10,
     backgroundColor: "#EF4444",
@@ -388,12 +344,22 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     flexDirection: "row",
     justifyContent: "center",
-    alignItems: "center",
     gap: 8,
   },
-  logoutText: {
-    color: "#fff",
-    fontWeight: "900",
-    fontSize: 14,
-  },
+  logoutText: { color: "#fff", fontWeight: "900" },
+
+  leaderboardBtn: {
+  marginTop: 10,
+  backgroundColor: "#FACC15",
+  paddingVertical: 10,
+  borderRadius: 14,
+  flexDirection: "row",
+  justifyContent: "center",
+  gap: 6,
+},
+leaderboardText: {
+  fontWeight: "900",
+  color: "#000",
+},
+
 });
