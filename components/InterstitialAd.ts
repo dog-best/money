@@ -1,5 +1,3 @@
-// components/InterstitialAd.ts
-// components/InterstitialAd.ts
 import {
   InterstitialAd,
   AdEventType,
@@ -16,6 +14,7 @@ export async function showInterstitial(): Promise<void> {
     return;
   }
 
+  // ✅ Test ads in dev, real ads in production (SAFE)
   const unitId = __DEV__
     ? TestIds.INTERSTITIAL
     : "ca-app-pub-4533962949749202/2761859275";
@@ -31,8 +30,8 @@ export async function showInterstitial(): Promise<void> {
       if (resolved) return;
       resolved = true;
       cleanup();
-      console.log("[Ad] Timeout – skipping ad");
-      resolve(); // ⬅️ IMPORTANT: do NOT reject
+      console.log("[Ad] Interstitial timeout — skipping");
+      resolve(); // ✅ NEVER block app flow
     }, 8000);
 
     const cleanup = () => {
@@ -71,7 +70,7 @@ export async function showInterstitial(): Promise<void> {
         if (resolved) return;
         resolved = true;
         cleanup();
-        resolve(); // ⬅️ NEVER reject — allow reward flow
+        resolve(); // ✅ NEVER reject
       }
     );
 

@@ -1,4 +1,3 @@
-// components/AdBanner.tsx
 import React from "react";
 import { View, StyleSheet, Platform } from "react-native";
 import {
@@ -7,25 +6,29 @@ import {
   TestIds,
 } from "react-native-google-mobile-ads";
 
-const unitId = TestIds.BANNER;
+const IS_NATIVE =
+  Platform.OS === "android" || Platform.OS === "ios";
 
+// ✅ Test ads in dev, real ads in production
+const unitId = __DEV__
+  ? TestIds.BANNER
+  : "ca-app-pub-4533962949749202/7206578732";
 
 export default function AdBanner() {
-  if (Platform.OS === "web") return null;
+  if (!IS_NATIVE) return null;
 
   return (
     <View style={styles.container}>
       <BannerAd
-  unitId={unitId}
-  size={BannerAdSize.BANNER}
-  requestOptions={{
-    requestNonPersonalizedAdsOnly: true,
-  }}
-  onAdFailedToLoad={(error) => {
-    console.log("BannerAd error:", error);
-  }}
-/>
-
+        unitId={unitId}
+        size={BannerAdSize.BANNER}
+        requestOptions={{
+          requestNonPersonalizedAdsOnly: true,
+        }}
+        onAdFailedToLoad={(error) => {
+          console.log("BannerAd error:", error);
+        }}
+      />
     </View>
   );
 }
