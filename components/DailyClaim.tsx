@@ -228,7 +228,7 @@ const progressLabel = useMemo(
             {loading ? (
               <View style={{ flexDirection: "row", alignItems: "center" }}>
                 <ActivityIndicator />
-                <Text style={[styles.claimText, { marginLeft: 10 }]}>Loading ad...</Text>
+                <Text style={[styles.claimText, { marginLeft: 10 }]}>Loading...</Text>
               </View>
             ) : (
               <Text style={styles.claimText}>

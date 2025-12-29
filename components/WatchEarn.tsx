@@ -168,7 +168,7 @@ export default function WatchEarn({
     >
       <View style={styles.overlay}>
         <View style={styles.card}>
-          <Text style={styles.title}>Earn more</Text>
+          <Text style={styles.title}>Earn More</Text>
           <Text style={styles.sub}>
             Optional task for instant VAD
           </Text>

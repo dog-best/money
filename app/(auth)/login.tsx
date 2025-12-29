@@ -77,7 +77,7 @@ function LoginScreen() {
           style={styles.logo}
         />
         <Text style={styles.brand}>VAD</Text>
-        <Text style={styles.tagline}>Virtual Asset Depot</Text>
+        <Text style={styles.tagline}>CONTRIBUTE. SECURE. EARN</Text>
       </View>
 
       {/* CARD */}
