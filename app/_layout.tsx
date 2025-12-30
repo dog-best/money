@@ -1,60 +1,164 @@
 // app/_layout.tsx
 import { Slot, Redirect, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { View, ActivityIndicator, Platform } from "react-native";
-import { useEffect } from "react";
+import {
+  View,
+  ActivityIndicator,
+  Platform,
+  Text,
+  Pressable,
+  StyleSheet,
+} from "react-native";
+import { useEffect, useState } from "react";
 import { useAuth } from "../hooks/useAuth";
+import { supabase } from "../supabase/client";
+
+import * as Application from "expo-application";
+import * as Linking from "expo-linking";
 
 // AdMob
 import mobileAds from "react-native-google-mobile-ads";
+
+/* ---------------- VERSION COMPARE ---------------- */
+
+const isOutdated = (current: string, min: string) => {
+  const c = current.split(".").map(Number);
+  const m = min.split(".").map(Number);
+
+  for (let i = 0; i < Math.max(c.length, m.length); i++) {
+    if ((c[i] || 0) < (m[i] || 0)) return true;
+    if ((c[i] || 0) > (m[i] || 0)) return false;
+  }
+  return false;
+};
 
 export default function RootLayout() {
   const { user, loading, onboarded } = useAuth();
   const segments = useSegments();
 
-  // ✅ INITIALIZE ADMOB ONLY (SAFE)
+  const [systemState, setSystemState] = useState<
+    | { type: "maintenance"; message: string; eta?: string }
+    | { type: "update"; message: string; url: string }
+    | null
+  >(null);
+
+  const [booting, setBooting] = useState(true);
+
+  /* ---------------- ADMOB INIT ---------------- */
   useEffect(() => {
     if (Platform.OS === "android") {
-      mobileAds()
-        .initialize()
-        .then(status => {
-          console.log("✅ AdMob initialized:", status);
-        })
-        .catch(err => {
-          console.log("❌ AdMob init failed:", err);
-        });
+      mobileAds().initialize().catch(() => {});
     }
   }, []);
 
-  // ⏳ Wait for auth
-  if (loading) {
+  /* ---------------- SYSTEM CONTROL CHECK ---------------- */
+  useEffect(() => {
+    if (__DEV__) {
+      setBooting(false);
+      return;
+    }
+
+    (async () => {
+      try {
+        const appVersion =
+          Application.nativeApplicationVersion ?? "0.0.0";
+
+        const { data } = await supabase
+          .from("app_system_control")
+          .select("*")
+          .single();
+
+        if (!data) return;
+
+        /* 🔧 MAINTENANCE HAS TOP PRIORITY */
+        if (data.maintenance_enabled) {
+          setSystemState({
+            type: "maintenance",
+            message:
+              data.maintenance_message ??
+              "We are currently performing maintenance.",
+            eta: data.maintenance_eta,
+          });
+          return;
+        }
+
+        /* 🔁 FORCE UPDATE */
+        if (
+          data.force_update &&
+          isOutdated(appVersion, data.min_version)
+        ) {
+          setSystemState({
+            type: "update",
+            message:
+              data.update_message ??
+              "A new version is required to continue.",
+            url: data.apk_url,
+          });
+        }
+      } catch (e) {
+        console.log("System control error:", e);
+      } finally {
+        setBooting(false);
+      }
+    })();
+  }, []);
+
+  /* ---------------- GLOBAL BLOCK ---------------- */
+
+  if (booting || loading) {
     return (
-      <View
-        style={{
-          flex: 1,
-          justifyContent: "center",
-          alignItems: "center",
-          backgroundColor: "#060B1A",
-        }}
-      >
+      <View style={styles.loader}>
         <ActivityIndicator size="large" color="#8B5CF6" />
       </View>
     );
   }
 
+  if (systemState?.type === "maintenance") {
+    return (
+      <View style={styles.blockContainer}>
+        <Text style={styles.title}>Maintenance</Text>
+        <Text style={styles.message}>
+          {systemState.message}
+        </Text>
+        {systemState.eta && (
+          <Text style={styles.subText}>
+            Estimated return: {systemState.eta}
+          </Text>
+        )}
+      </View>
+    );
+  }
+
+  if (systemState?.type === "update") {
+    return (
+      <View style={styles.blockContainer}>
+        <Text style={styles.title}>Update Required</Text>
+        <Text style={styles.message}>
+          {systemState.message}
+        </Text>
+
+        <Pressable
+          style={styles.button}
+          onPress={() => Linking.openURL(systemState.url)}
+        >
+          <Text style={styles.buttonText}>Update Now</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
+  /* ---------------- ROUTING ---------------- */
+
   const group = segments[0];
 
-  // 🔒 Protect tabs
   if (!user && group === "(tabs)") {
     return <Redirect href="/(auth)/login" />;
   }
 
-  // 🚧 Logged-in but NOT onboarded
   if (user && !onboarded && group !== "(onboarding)") {
     return <Redirect href="/(onboarding)/profileSetup" />;
   }
 
-  // 🚫 Logged-in & onboarded → block auth/onboarding
   if (
     user &&
     onboarded &&
@@ -70,3 +174,48 @@ export default function RootLayout() {
     </>
   );
 }
+
+/* ---------------- STYLES ---------------- */
+
+const styles = StyleSheet.create({
+  loader: {
+    flex: 1,
+    backgroundColor: "#060B1A",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  blockContainer: {
+    flex: 1,
+    backgroundColor: "#050814",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 28,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: "900",
+    color: "#fff",
+    marginBottom: 12,
+  },
+  message: {
+    color: "#9FA8C7",
+    textAlign: "center",
+    marginBottom: 16,
+  },
+  subText: {
+    color: "#6B7280",
+    fontSize: 13,
+  },
+  button: {
+    marginTop: 24,
+    backgroundColor: "#8B5CF6",
+    paddingVertical: 14,
+    paddingHorizontal: 36,
+    borderRadius: 18,
+  },
+  buttonText: {
+    color: "#050814",
+    fontWeight: "900",
+    fontSize: 16,
+  },
+});
