@@ -7,7 +7,9 @@ import {
   Pressable,
   StyleSheet,
   Image,
+  ActivityIndicator,
 } from "react-native";
+import { usePolicy } from "@/hooks/usePolicy";
 
 export default function PrivacyPolicyModal({
   visible,
@@ -19,110 +21,55 @@ export default function PrivacyPolicyModal({
   onReject: () => void;
 }) {
   const [atBottom, setAtBottom] = useState(false);
+  const { policy, loading } = usePolicy("privacy_policy");
 
   return (
     <Modal visible={visible} animationType="fade" transparent>
       <View style={styles.backdrop}>
         <View style={styles.card}>
-          {/* LOGO */}
           <Image
             source={require("../assets/images/icon.png")}
             style={styles.logo}
           />
 
-          <Text style={styles.title}>Privacy Policy & Terms</Text>
+          <Text style={styles.title}>
+            {policy?.title ?? "Privacy Policy"}
+          </Text>
 
-          {/* CONTENT */}
-          <ScrollView
-            style={styles.scroll}
-            showsVerticalScrollIndicator={false}
-            onScroll={({ nativeEvent }) => {
-              const paddingToBottom = 24;
-              const isBottom =
-                nativeEvent.layoutMeasurement.height +
-                  nativeEvent.contentOffset.y >=
-                nativeEvent.contentSize.height - paddingToBottom;
+          {loading ? (
+            <ActivityIndicator color="#8B5CF6" />
+          ) : (
+            <ScrollView
+              style={styles.scroll}
+              contentContainerStyle={{ paddingBottom: 24 }}
+              showsVerticalScrollIndicator={false}
+              scrollEventThrottle={16}
+              onScroll={({ nativeEvent }) => {
+                const isBottom =
+                  nativeEvent.layoutMeasurement.height +
+                    nativeEvent.contentOffset.y >=
+                  nativeEvent.contentSize.height - 20;
 
-              if (isBottom) setAtBottom(true);
-            }}
-            scrollEventThrottle={16}
-          >
-            <Text style={styles.text}>
-              Welcome to <Text style={styles.strong}>VAD Depot</Text>, a
-              crypto-related application built around a Proof-of-Stake mining
-              model.
-              {"\n\n"}
-              By using this application, you acknowledge and agree to the
-              following terms and conditions.
-              {"\n\n"}
-              <Text style={styles.section}>1. Data Usage & Privacy</Text>
-              {"\n"}
-              VAD Depot collects minimal data required to operate the platform,
-              including wallet identifiers, mining activity, rewards history,
-              and device-related analytics used strictly for security, abuse
-              prevention, and service optimization.
-              {"\n\n"}
-              We do not sell personal data. No sensitive personal information is
-              shared with third parties outside of essential infrastructure
-              providers (analytics, hosting, ads).
-              {"\n\n"}
-              <Text style={styles.section}>2. Crypto & Mining Disclosure</Text>
-              {"\n"}
-              VAD Depot is a blockchain-related project. Mining rewards shown in
-              the app are simulated protocol rewards and do not represent real,
-              tradable, or transferable value at this time.
-              {"\n\n"}
-              <Text style={styles.strong}>
-                VAD tokens currently have no monetary value.
+                if (isBottom) setAtBottom(true);
+              }}
+            >
+              <Text style={styles.text}>
+                {policy?.content || "No policy content available."}
               </Text>
-              {"\n"}
-              VAD tokens are not purchasable, sellable, transferable, or
-              exchangeable until officially launched by the VAD team.
-              {"\n\n"}
-              Any attempt to buy, sell, trade, or market VAD tokens before
-              official launch is strictly prohibited.
-              {"\n\n"}
-              <Text style={styles.section}>3. No Financial Advice</Text>
-              {"\n"}
-              Nothing within this application constitutes financial advice,
-              investment advice, or trading recommendations.
-              {"\n\n"}
-              Participation in VAD Depot is voluntary and for experimental,
-              educational, and ecosystem participation purposes only.
-              {"\n\n"}
-              <Text style={styles.section}>4. Abuse & Fair Use</Text>
-              {"\n"}
-              Automated actions, bots, emulators, exploit attempts, or any form
-              of manipulation may result in suspension or permanent account
-              termination without notice.
-              {"\n\n"}
-              <Text style={styles.section}>5. Policy Validity</Text>
-              {"\n"}
-              This agreement is valid for a limited period and must be reviewed
-              and re-accepted periodically to continue using mining features.
-              {"\n\n"}
-              By tapping <Text style={styles.strong}>Agree & Continue</Text>, you
-              confirm that you have read, understood, and accepted these terms.
-            </Text>
-          </ScrollView>
+            </ScrollView>
+          )}
 
-          {/* ACTIONS */}
           <View style={styles.actions}>
             <Pressable style={styles.reject} onPress={onReject}>
               <Text style={styles.rejectText}>Decline</Text>
             </Pressable>
 
             <Pressable
-              style={[
-                styles.accept,
-                !atBottom && { opacity: 0.4 },
-              ]}
+              style={[styles.accept, !atBottom && { opacity: 0.4 }]}
               disabled={!atBottom}
               onPress={onAccept}
             >
-              <Text style={styles.acceptText}>
-                Agree & Continue
-              </Text>
+              <Text style={styles.acceptText}>Agree & Continue</Text>
             </Pressable>
           </View>
         </View>
@@ -130,6 +77,7 @@ export default function PrivacyPolicyModal({
     </Modal>
   );
 }
+
 
 /* ============================================================
    STYLES
@@ -168,6 +116,7 @@ const styles = StyleSheet.create({
   },
 
   scroll: {
+    flex: 1,              // 🔥 THIS IS THE FIX
     marginBottom: 14,
   },
 
@@ -175,16 +124,6 @@ const styles = StyleSheet.create({
     color: "#9FA8C7",
     fontSize: 12.5,
     lineHeight: 18,
-  },
-
-  section: {
-    color: "#C4B5FD",
-    fontWeight: "900",
-  },
-
-  strong: {
-    color: "#8B5CF6",
-    fontWeight: "900",
   },
 
   actions: {
