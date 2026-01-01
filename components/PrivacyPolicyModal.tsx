@@ -8,6 +8,7 @@ import {
   StyleSheet,
   Image,
   ActivityIndicator,
+  Platform,
 } from "react-native";
 import { usePolicy } from "@/hooks/usePolicy";
 
@@ -24,52 +25,68 @@ export default function PrivacyPolicyModal({
   const { policy, loading } = usePolicy("privacy_policy");
 
   return (
-    <Modal visible={visible} animationType="fade" transparent>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      presentationStyle="overFullScreen"   // 🔥 REQUIRED (iOS)
+      statusBarTranslucent                  // 🔥 REQUIRED (Android)
+    >
       <View style={styles.backdrop}>
         <View style={styles.card}>
-          <Image
-            source={require("../assets/images/icon.png")}
-            style={styles.logo}
-          />
+          {/* HEADER */}
+          <View style={styles.header}>
+            <Image
+              source={require("../assets/images/icon.png")}
+              style={styles.logo}
+            />
+            <Text style={styles.title}>
+              {policy?.title ?? "Privacy Policy"}
+            </Text>
+          </View>
 
-          <Text style={styles.title}>
-            {policy?.title ?? "Privacy Policy"}
-          </Text>
+          {/* CONTENT */}
+          <View style={styles.content}>
+            {loading ? (
+              <ActivityIndicator color="#8B5CF6" />
+            ) : (
+              <ScrollView
+                showsVerticalScrollIndicator
+                contentContainerStyle={styles.scrollContent}
+                onScroll={({ nativeEvent }) => {
+                  const isBottom =
+                    nativeEvent.layoutMeasurement.height +
+                      nativeEvent.contentOffset.y >=
+                    nativeEvent.contentSize.height - 24;
 
-          {loading ? (
-            <ActivityIndicator color="#8B5CF6" />
-          ) : (
-            <ScrollView
-              style={styles.scroll}
-              contentContainerStyle={{ paddingBottom: 24 }}
-              showsVerticalScrollIndicator={false}
-              scrollEventThrottle={16}
-              onScroll={({ nativeEvent }) => {
-                const isBottom =
-                  nativeEvent.layoutMeasurement.height +
-                    nativeEvent.contentOffset.y >=
-                  nativeEvent.contentSize.height - 20;
+                  if (isBottom) setAtBottom(true);
+                }}
+                scrollEventThrottle={16}
+              >
+                <Text style={styles.text}>
+                  {policy?.content || "No policy content available."}
+                </Text>
+              </ScrollView>
+            )}
+          </View>
 
-                if (isBottom) setAtBottom(true);
-              }}
-            >
-              <Text style={styles.text}>
-                {policy?.content || "No policy content available."}
-              </Text>
-            </ScrollView>
-          )}
-
+          {/* ACTIONS */}
           <View style={styles.actions}>
             <Pressable style={styles.reject} onPress={onReject}>
               <Text style={styles.rejectText}>Decline</Text>
             </Pressable>
 
             <Pressable
-              style={[styles.accept, !atBottom && { opacity: 0.4 }]}
+              style={[
+                styles.accept,
+                !atBottom && { opacity: 0.4 },
+              ]}
               disabled={!atBottom}
               onPress={onAccept}
             >
-              <Text style={styles.acceptText}>Agree & Continue</Text>
+              <Text style={styles.acceptText}>
+                Agree & Continue
+              </Text>
             </Pressable>
           </View>
         </View>
@@ -78,25 +95,30 @@ export default function PrivacyPolicyModal({
   );
 }
 
-
-/* ============================================================
-   STYLES
-=============================================================== */
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.55)",
-    justifyContent: "flex-end",
-    padding: 14,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 16,
   },
 
   card: {
-    maxHeight: "82%",
+    flex: 1,                      // 🔥 NOT %
+    width: "100%",
+    maxWidth: 420,
+    maxHeight: "90%",             // safe cap
     backgroundColor: "#060B1A",
     borderRadius: 22,
-    padding: 18,
     borderWidth: 1,
     borderColor: "rgba(139,92,246,0.35)",
+    overflow: "hidden",
+  },
+
+  header: {
+    padding: 18,
+    paddingBottom: 10,
   },
 
   logo: {
@@ -112,23 +134,29 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 18,
     fontWeight: "900",
-    marginBottom: 12,
   },
 
-  scroll: {
-    flex: 1,              // 🔥 THIS IS THE FIX
-    marginBottom: 14,
+  content: {
+    flex: 1,                      // 🔥 REAL HEIGHT
+    paddingHorizontal: 18,
+  },
+
+  scrollContent: {
+    paddingBottom: 24,
   },
 
   text: {
     color: "#9FA8C7",
-    fontSize: 12.5,
-    lineHeight: 18,
+    fontSize: 13,
+    lineHeight: 19,
   },
 
   actions: {
     flexDirection: "row",
     gap: 12,
+    padding: 18,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255,255,255,0.06)",
   },
 
   reject: {
@@ -157,4 +185,3 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
 });
-

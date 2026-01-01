@@ -24,26 +24,23 @@ import AdBanner from "../../components/AdBanner";
 import ClaimSuccessModal from "../../components/ClaimSuccessModal";
 import PrivacyPolicyModal from "../../components/PrivacyPolicyModal";
 import { usePrivacyPolicy } from "../../hooks/usePrivacyPolicy";
+import { useMiningConfig } from "../../hooks/useMiningConfig";
 import {
   initNotifications,
   notifyMiningComplete,
 } from "../../utils/notifications";
 
-
 /* ============================================================
    CONSTANTS
 =============================================================== */
-const DAY_SECONDS = 24 * 3600;
-const DAILY_MAX = 4.8;
 
 const HEADER_MAX = 140;
 const HEADER_MIN = 84;
 
-
-
 /* ============================================================
    HELPERS
 =============================================================== */
+
 const getTier = (balance: number) => {
   if (balance >= 50) return { label: "Gold", color: "#FACC15" };
   if (balance >= 15) return { label: "Silver", color: "#CBD5E1" };
@@ -53,6 +50,7 @@ const getTier = (balance: number) => {
 /* ============================================================
    ANIMATED BALANCE
 =============================================================== */
+
 function AnimatedBalance({ animatedValue }: { animatedValue: Animated.Value }) {
   const [val, setVal] = useState(0);
 
@@ -78,6 +76,7 @@ function AnimatedBalance({ animatedValue }: { animatedValue: Animated.Value }) {
 /* ============================================================
    MINI ACTION
 =============================================================== */
+
 const MiniAction = ({ icon, label, onPress }: any) => (
   <Pressable style={styles.miniBtn} onPress={onPress}>
     <MaterialIcons name={icon} size={22} color="#8B5CF6" />
@@ -88,6 +87,7 @@ const MiniAction = ({ icon, label, onPress }: any) => (
 /* ============================================================
    MAIN PAGE
 =============================================================== */
+
 export default function Page() {
   const [screenReady, setScreenReady] = useState(false);
 
@@ -109,7 +109,20 @@ export default function Page() {
   } = useMining();
 
   const miningActive = miningData?.miningActive ?? false;
+
+  /* ============================================================
+     CONFIG (MUST COME BEFORE CONSTANT USAGE)
+  =============================================================== */
+
+  const { config, loading: configLoading } = useMiningConfig();
+
+  const DAY_SECONDS = config?.duration_seconds ?? 86400;
+  const DAILY_MAX = config?.daily_max ?? 4.8;
   const PER_SECOND = DAILY_MAX / DAY_SECONDS;
+
+  /* ============================================================
+     ANIMATED VALUES / REFS
+  =============================================================== */
 
   const animatedBalance = useRef(new Animated.Value(0)).current;
   const miningDataRef = useRef(miningData);
@@ -118,6 +131,10 @@ export default function Page() {
   const scrollY = useRef(new Animated.Value(0)).current;
   const shimmerX = useRef(new Animated.Value(0)).current;
   const claimPulse = useRef(new Animated.Value(1)).current;
+
+  /* ============================================================
+     STATE
+  =============================================================== */
 
   const [sessionElapsed, setSessionElapsed] = useState(0);
   const [sessionBalance, setSessionBalance] = useState(0);
@@ -135,43 +152,40 @@ export default function Page() {
 
   const progress = useMemo(
     () => (miningActive ? Math.min(1, sessionElapsed / DAY_SECONDS) : 0),
-    [miningActive, sessionElapsed]
+    [miningActive, sessionElapsed, DAY_SECONDS]
   );
 
   const tier = getTier(miningData?.balance ?? 0);
 
   const [claimSuccess, setClaimSuccess] = useState(false);
-const [claimedAmount, setClaimedAmount] = useState(0);
+  const [claimedAmount, setClaimedAmount] = useState(0);
 
-const {
-  loading: policyLoading,
-  required: policyRequired,
-  accept,
-  reject,
-} = usePrivacyPolicy();
-
-
+  const {
+    loading: policyLoading,
+    required: policyRequired,
+    accept,
+    reject,
+  } = usePrivacyPolicy();
 
   /* ============================================================
      EFFECTS
-=============================================================== */
+  =============================================================== */
+
   useEffect(() => {
     miningDataRef.current = miningData;
   }, [miningData]);
 
-useEffect(() => {
-  if (!screenReady) return;
+  useEffect(() => {
+    if (!screenReady) return;
 
-  (async () => {
-    try {
-      await initNotifications();
-    } catch {
-      console.warn("Notifications disabled");
-    }
-  })();
-}, [screenReady]);
-
-
+    (async () => {
+      try {
+        await initNotifications();
+      } catch {
+        console.warn("Notifications disabled");
+      }
+    })();
+  }, [screenReady]);
 
   useEffect(() => {
     if (typeof miningData?.balance !== "number") return;
@@ -195,37 +209,37 @@ useEffect(() => {
     ).start();
   }, []);
 
-useEffect(() => {
-  const id = setInterval(() => {
-    const md = miningDataRef.current;
-    if (!md?.miningActive || !md?.lastStart) {
-      notifiedRef.current = false;
-      setSessionElapsed(0);
-      setSessionBalance(0);
-      setTimeLeft(DAY_SECONDS);
-      return;
-    }
+  useEffect(() => {
+    const id = setInterval(() => {
+      const md = miningDataRef.current;
 
-if (!md?.lastStart || isNaN(Date.parse(md.lastStart))) return;
+      if (!md?.miningActive || !md?.lastStart) {
+        notifiedRef.current = false;
+        setSessionElapsed(0);
+        setSessionBalance(0);
+        setTimeLeft(DAY_SECONDS);
+        return;
+      }
 
-const elapsed = Math.min(
-  Math.floor((Date.now() - Date.parse(md.lastStart)) / 1000),
-  DAY_SECONDS
-);
+      if (isNaN(Date.parse(md.lastStart))) return;
 
-    setSessionElapsed(elapsed);
-    setSessionBalance(elapsed * PER_SECOND);
-    setTimeLeft(DAY_SECONDS - elapsed);
+      const elapsed = Math.min(
+        Math.floor((Date.now() - Date.parse(md.lastStart)) / 1000),
+        DAY_SECONDS
+      );
 
-    if (elapsed >= DAY_SECONDS && !notifiedRef.current) {
-      notifiedRef.current = true;
-     notifyMiningComplete(); // 🔔 PHONE NOTIFICATION
-    }
-  }, 1000);
+      setSessionElapsed(elapsed);
+      setSessionBalance(elapsed * PER_SECOND);
+      setTimeLeft(DAY_SECONDS - elapsed);
 
-  return () => clearInterval(id);
-}, []);
+      if (elapsed >= DAY_SECONDS && !notifiedRef.current) {
+        notifiedRef.current = true;
+        notifyMiningComplete();
+      }
+    }, 1000);
 
+    return () => clearInterval(id);
+  }, [DAY_SECONDS, PER_SECOND]);
 
   useEffect(() => {
     let loop: Animated.CompositeAnimation | null = null;
@@ -270,13 +284,21 @@ const elapsed = Math.min(
     }
   }, [canClaim]);
 
-  if (isLoading) {
+  /* ============================================================
+     LOADERS
+  =============================================================== */
+
+  if (isLoading || policyLoading || configLoading) {
     return (
       <View style={styles.loading}>
         <ActivityIndicator size="large" color="#8B5CF6" />
       </View>
     );
   }
+
+  /* ============================================================
+     DERIVED ANIMATIONS
+  =============================================================== */
 
   const headerHeight = scrollY.interpolate({
     inputRange: [0, HEADER_MAX - HEADER_MIN],
@@ -289,18 +311,10 @@ const elapsed = Math.min(
     outputRange: ["0deg", "360deg"],
   });
 
-  if (policyLoading) {
-  return (
-    <View style={styles.loading}>
-      <ActivityIndicator size="large" color="#8B5CF6" />
-    </View>
-  );
-}
-
-
   /* ============================================================
-     RENDER
-=============================================================== */
+     RENDER (UNCHANGED BELOW)
+  =============================================================== */
+
   return (
     <View style={styles.container}>
       {/* HEADER */}
@@ -344,8 +358,13 @@ const elapsed = Math.min(
             <Text style={styles.headerTitle}>VAD DEPOT</Text>
             <Text style={styles.headerTagline}>CONTRIBUTE • SECURE • EARN</Text>
             <Text style={styles.headerEarning}>
-              Earn up to <Text style={styles.headerEarningStrong}>4.8 VAD</Text> / 24hrs
-            </Text>
+  Earn up to{" "}
+  <Text style={styles.headerEarningStrong}>
+    {DAILY_MAX} VAD
+  </Text>{" "}
+  / {DAY_SECONDS / 3600}hrs
+</Text>
+
             <Text style={styles.headerIntro}>Proof-of-Stake Network</Text>
           </View>
 

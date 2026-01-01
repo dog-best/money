@@ -176,20 +176,30 @@ export async function stopMining(uid: string) {
    CLAIM MINING REWARD
 ------------------------------------------------------------- */
 export async function claimMiningReward(uid: string) {
-  const { data, error } = await supabase
+  // 1️⃣ fetch mining data
+  const { data: mining, error: mErr } = await supabase
     .from("mining_data")
     .select("*")
     .eq("user_id", uid)
     .single();
 
-  if (error || !data) return 0;
+  if (mErr || !mining) return 0;
+
+  // 2️⃣ fetch active config
+  const { data: config, error: cErr } = await supabase
+    .from("mining_config")
+    .select("*")
+    .eq("is_active", true)
+    .single();
+
+  if (cErr || !config) return 0;
 
   const now = new Date();
 
-  const lastCheckpoint = data.last_claim
-    ? new Date(data.last_claim)
-    : data.last_start
-    ? new Date(data.last_start)
+  const lastCheckpoint = mining.last_claim
+    ? new Date(mining.last_claim)
+    : mining.last_start
+    ? new Date(mining.last_start)
     : null;
 
   if (!lastCheckpoint) return 0;
@@ -200,33 +210,35 @@ export async function claimMiningReward(uid: string) {
 
   if (elapsedSeconds <= 0) return 0;
 
-  const MAX_SECONDS = 24 * 3600;
-  const DAILY_MAX = 4.8;
+  // 3️⃣ use CONFIG values (🔥 NO HARDCODE)
+  const cappedSeconds = Math.min(
+    elapsedSeconds,
+    config.duration_seconds
+  );
 
-  const cappedSeconds = Math.min(elapsedSeconds, MAX_SECONDS);
-  const reward = (cappedSeconds / MAX_SECONDS) * DAILY_MAX;
+  const reward =
+    (cappedSeconds / config.duration_seconds) * config.daily_max;
 
-let query = supabase
-  .from("mining_data")
- .update({
-  balance: data.balance + reward,
-  last_claim: now.toISOString(),
-  mining_active: false,
-  last_start: null, // ✅ HARD RESET SESSION
-})
+  // 4️⃣ atomic update (race-safe)
+  let query = supabase
+    .from("mining_data")
+    .update({
+      balance: Number(mining.balance ?? 0) + reward,
+      last_claim: now.toISOString(),
+      mining_active: false,
+      last_start: null,
+    })
+    .eq("user_id", uid);
 
-  .eq("user_id", uid);
+  if (mining.last_claim) {
+    query = query.eq("last_claim", mining.last_claim);
+  }
 
-if (data.last_claim) {
-  query = query.eq("last_claim", data.last_claim); // race lock ONLY if exists
-}
+  const { data: updated, error: uErr } = await query
+    .select()
+    .single();
 
-const { data: updated, error: updErr } = await query
-  .select()
-  .single();
-
-
-  if (updErr || !updated) return 0;
+  if (uErr || !updated) return 0;
 
   return reward;
 }
