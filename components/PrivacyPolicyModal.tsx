@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Modal,
   View,
@@ -23,6 +23,13 @@ export default function PrivacyPolicyModal({
 }) {
   const [atBottom, setAtBottom] = useState(false);
   const { policy, loading } = usePolicy("privacy_policy");
+  
+
+  useEffect(() => {
+  console.log("[policy-modal] visible:", visible);
+  console.log("[policy-modal] loading:", loading);
+  console.log("[policy-modal] has content:", !!policy?.content);
+}, [visible, loading, policy]);
 
   return (
     <Modal
@@ -64,9 +71,12 @@ export default function PrivacyPolicyModal({
                 }}
                 scrollEventThrottle={16}
               >
-                <Text style={styles.text}>
-                  {policy?.content || "No policy content available."}
-                </Text>
+               <Text style={styles.text}>
+  {loading
+    ? "Loading policy..."
+    : policy?.content || "Policy content unavailable (debug)."}
+</Text>
+
               </ScrollView>
             )}
           </View>

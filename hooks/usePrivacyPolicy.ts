@@ -9,11 +9,16 @@ export function usePrivacyPolicy() {
 
   useEffect(() => {
     if (!user) {
+      console.log("[policy-acceptance] no user");
       setLoading(false);
       return;
     }
 
-    (async () => {
+    let cancelled = false;
+
+    const checkAcceptance = async () => {
+      console.log("[policy-acceptance] checking acceptance for:", user.id);
+
       const { data, error } = await supabase
         .from("policy_acceptance")
         .select("expires_at")
@@ -22,12 +27,27 @@ export function usePrivacyPolicy() {
         .limit(1)
         .maybeSingle();
 
-      if (error || !data || new Date(data.expires_at) < new Date()) {
+      if (cancelled) return;
+
+      if (error) {
+        console.error("[policy-acceptance] error:", error.message);
         setRequired(true);
+      } else if (!data || new Date(data.expires_at) < new Date()) {
+        console.log("[policy-acceptance] policy required");
+        setRequired(true);
+      } else {
+        console.log("[policy-acceptance] policy still valid");
+        setRequired(false);
       }
 
       setLoading(false);
-    })();
+    };
+
+    checkAcceptance();
+
+    return () => {
+      cancelled = true;
+    };
   }, [user]);
 
   const accept = async () => {
@@ -36,6 +56,8 @@ export function usePrivacyPolicy() {
     const now = new Date();
     const expires = new Date();
     expires.setDate(now.getDate() + 7);
+
+    console.log("[policy-acceptance] accepting policy");
 
     await supabase.from("policy_acceptance").insert({
       user_id: user.id,
@@ -47,6 +69,7 @@ export function usePrivacyPolicy() {
   };
 
   const reject = async () => {
+    console.log("[policy-acceptance] rejected — signing out");
     await supabase.auth.signOut();
   };
 

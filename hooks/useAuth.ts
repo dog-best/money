@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../supabase/client";
-import { Session, User } from "@supabase/supabase-js";
+import { User } from "@supabase/supabase-js";
 
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
@@ -11,6 +11,8 @@ export function useAuth() {
     let mounted = true;
 
     const load = async () => {
+      console.log("[auth] loading session");
+
       const { data } = await supabase.auth.getSession();
       if (!mounted) return;
 
@@ -18,13 +20,19 @@ export function useAuth() {
       setUser(user);
 
       if (user) {
-        const { data: profile } = await supabase
+        const { data: profile, error } = await supabase
           .from("user_profiles")
           .select("*")
           .eq("user_id", user.id)
-          .single();
+          .maybeSingle(); // 🔥 FIX
 
-        setProfile(profile);
+        if (error) {
+          console.error("[auth] profile fetch error:", error.message);
+        }
+
+        setProfile(profile ?? null);
+      } else {
+        setProfile(null);
       }
 
       setLoading(false);
@@ -34,6 +42,10 @@ export function useAuth() {
 
     const { data: listener } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
+        if (!mounted) return;
+
+        console.log("[auth] state change:", _event);
+
         const user = session?.user ?? null;
         setUser(user);
 
@@ -42,9 +54,10 @@ export function useAuth() {
             .from("user_profiles")
             .select("*")
             .eq("user_id", user.id)
-            .single();
+            .maybeSingle(); // 🔥 FIX
 
-          setProfile(profile);
+          if (!mounted) return;
+          setProfile(profile ?? null);
         } else {
           setProfile(null);
         }
