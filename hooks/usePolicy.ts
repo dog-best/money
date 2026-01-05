@@ -21,7 +21,7 @@ export function usePolicy(slug: string) {
       setLoading(true);
 
       const { data, error } = await supabase
-        .from("policy_documents")
+        .rpc("get_active_policy") 
         .select("id,title,content,version,effective_from")
         .eq("slug", slug)
         .eq("is_active", true)
