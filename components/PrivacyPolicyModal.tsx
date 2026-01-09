@@ -76,7 +76,7 @@ export default function PrivacyPolicyModal({
           {/* HEADER */}
           <View style={styles.header}>
             <Image
-              source={require("../../../assets/images/icon.png")} // ✅ Keep your icon
+              source={require("../assets/images/icon.png")} // ✅ Keep your icon
               style={styles.logo}
             />
             <Text style={styles.title}>{policy.title}</Text>
