@@ -11,10 +11,8 @@ import {
   TouchableOpacity,
   Image,
 } from "react-native";
-
-import { supabase } from "../../supabase/client";
 import { Link, useRouter } from "expo-router";
-
+import { Ionicons } from "@expo/vector-icons";
 import Animated, {
   FadeInUp,
   FadeInDown,
@@ -22,9 +20,9 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 
-import { Ionicons } from "@expo/vector-icons";
+import { supabase } from "@/supabase/client";
 
-/* ---------- Expo Router Wrapper ---------- */
+/* ---------- Router Wrapper ---------- */
 export default function Register() {
   return <RegisterScreen />;
 }
@@ -44,7 +42,7 @@ function RegisterScreen() {
   const [errorMsg, setErrorMsg] = useState("");
   const [shake, setShake] = useState(false);
 
-  /* ---------- ERROR SHAKE (UNCHANGED) ---------- */
+  /* ---------- Error Shake Animation ---------- */
   const errorStyle = useAnimatedStyle(() => ({
     transform: [
       {
@@ -59,7 +57,7 @@ function RegisterScreen() {
     setTimeout(() => setShake(false), 150);
   };
 
-  /* ---------- REGISTER LOGIC (UNCHANGED) ---------- */
+  /* ---------- Register Logic (Safe & Clean) ---------- */
   const handleRegister = async () => {
     if (loading) return;
 
@@ -84,22 +82,16 @@ function RegisterScreen() {
         password,
       });
 
-      if (error) throw new Error(error.message);
+      if (error) throw error;
+      if (!data.user) throw new Error("User not created");
 
-      const user = data.user;
-      if (!user) throw new Error("User not created");
-
+      // Optional profile table insert (safe to remove if unused)
       await supabase.from("user_profiles").insert({
-        user_id: user.id,
-        username: "",
-        referral_code: Math.random()
-          .toString(36)
-          .substring(2, 8)
-          .toUpperCase(),
+        user_id: data.user.id,
         created_at: new Date().toISOString(),
       });
 
-      router.replace("/(onboarding)/profileSetup");
+      router.replace("/(auth)/login");
     } catch (err: any) {
       triggerError(err?.message ?? "Registration failed");
     } finally {
@@ -109,10 +101,7 @@ function RegisterScreen() {
 
   return (
     <View style={styles.root}>
-      <Animated.View
-        entering={FadeInUp.duration(400)}
-        style={styles.card}
-      >
+      <Animated.View entering={FadeInUp.duration(400)} style={styles.card}>
         {/* LOGO */}
         <Image
           source={require("../../assets/images/icon.png")}
@@ -125,7 +114,7 @@ function RegisterScreen() {
         </Animated.Text>
 
         <Animated.Text entering={FadeInDown.delay(200)} style={styles.subtitle}>
-          Start mining and earning rewards
+          Start accepting crypto payments
         </Animated.Text>
 
         {/* ERROR */}
@@ -140,7 +129,7 @@ function RegisterScreen() {
           <TextInput
             style={styles.input}
             placeholder="Email address"
-            placeholderTextColor="#777"
+            placeholderTextColor="#888"
             autoCapitalize="none"
             keyboardType="email-address"
             value={email}
@@ -153,41 +142,41 @@ function RegisterScreen() {
           <TextInput
             style={styles.input}
             placeholder="Password"
-            placeholderTextColor="#777"
+            placeholderTextColor="#888"
             secureTextEntry={!passwordVisible}
             value={password}
             onChangeText={setPassword}
           />
           <TouchableOpacity
             style={styles.eye}
-            onPress={() => setPasswordVisible(!passwordVisible)}
+            onPress={() => setPasswordVisible((v) => !v)}
           >
             <Ionicons
               name={passwordVisible ? "eye-off" : "eye"}
               size={20}
-              color="#777"
+              color="#aaa"
             />
           </TouchableOpacity>
         </Animated.View>
 
-        {/* CONFIRM */}
+        {/* CONFIRM PASSWORD */}
         <Animated.View entering={FadeInUp.delay(500)} style={styles.passwordWrap}>
           <TextInput
             style={styles.input}
             placeholder="Confirm password"
-            placeholderTextColor="#777"
+            placeholderTextColor="#888"
             secureTextEntry={!confirmVisible}
             value={confirm}
             onChangeText={setConfirm}
           />
           <TouchableOpacity
             style={styles.eye}
-            onPress={() => setConfirmVisible(!confirmVisible)}
+            onPress={() => setConfirmVisible((v) => !v)}
           >
             <Ionicons
               name={confirmVisible ? "eye-off" : "eye"}
               size={20}
-              color="#777"
+              color="#aaa"
             />
           </TouchableOpacity>
         </Animated.View>
@@ -228,7 +217,7 @@ const PURPLE = "#5b3deb";
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: "#070707",
+    backgroundColor: "#000",
     justifyContent: "center",
     alignItems: "center",
     padding: 20,
@@ -237,8 +226,8 @@ const styles = StyleSheet.create({
   card: {
     width: "100%",
     maxWidth: 400,
-    backgroundColor: "#0e0e0e",
-    borderRadius: 20,
+    backgroundColor: "#0c0c0c",
+    borderRadius: 22,
     padding: 26,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.06)",
@@ -249,7 +238,7 @@ const styles = StyleSheet.create({
     height: 60,
     resizeMode: "contain",
     alignSelf: "center",
-    marginBottom: 16,
+    marginBottom: 18,
   },
 
   title: {
@@ -260,14 +249,14 @@ const styles = StyleSheet.create({
   },
 
   subtitle: {
-    color: "#888",
+    color: "#9a9a9a",
     textAlign: "center",
     marginBottom: 20,
   },
 
   input: {
-    backgroundColor: "#151515",
-    borderRadius: 12,
+    backgroundColor: "#141414",
+    borderRadius: 14,
     paddingVertical: 14,
     paddingHorizontal: 14,
     color: "#fff",
@@ -307,7 +296,7 @@ const styles = StyleSheet.create({
   },
 
   footerText: {
-    color: "#777",
+    color: "#888",
     marginRight: 6,
   },
 
@@ -322,3 +311,4 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
 });
+

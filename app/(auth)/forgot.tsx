@@ -1,5 +1,6 @@
 // app/auth/forgot.tsx
 
+// app/(auth)/forgot.tsx
 import React, { useState, useRef, useEffect } from "react";
 import {
   View,
@@ -12,12 +13,11 @@ import {
   Animated,
   Easing,
   ActivityIndicator,
-  Alert,
   Image,
 } from "react-native";
 
-import { supabase } from "../../supabase/client";
 import { Link } from "expo-router";
+import { supabase } from "@/supabase/client";
 
 export default function ForgotPassword() {
   return <ForgotPasswordScreen />;
@@ -25,15 +25,11 @@ export default function ForgotPassword() {
 
 function ForgotPasswordScreen() {
   const [email, setEmail] = useState("");
-  const [code, setCode] = useState("");
-  const [newPass, setNewPass] = useState("");
-
-  const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
 
-  // Animations (UNCHANGED)
+  // Animations
   const fade = useRef(new Animated.Value(0)).current;
   const scale = useRef(new Animated.Value(0.96)).current;
 
@@ -53,48 +49,21 @@ function ForgotPasswordScreen() {
     ]).start();
   }, []);
 
-  /* ---------------- LOGIC (UNCHANGED) ---------------- */
-
-  const sendEmailCode = async () => {
-    setErrorMsg("");
-    setSuccessMsg("");
+  /* --------- Reset Flow (Supabase Native) --------- */
+  const sendReset = async () => {
     if (!email.trim()) return setErrorMsg("Email is required");
 
+    setErrorMsg("");
+    setSuccessMsg("");
     setLoading(true);
+
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
         redirectTo: "https://your-app-domain.com/auth/reset",
       });
+
       if (error) throw error;
       setSuccessMsg("Reset link sent to your email");
-      setStep(2);
-    } catch (err: any) {
-      setErrorMsg(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const verifyCode = async () => {
-    setErrorMsg("");
-    setSuccessMsg("");
-    if (!code.trim()) return setErrorMsg("Code is required");
-    setSuccessMsg("Code verified");
-    setStep(3);
-  };
-
-  const resetPasswordNow = async () => {
-    setErrorMsg("");
-    setSuccessMsg("");
-    if (!newPass.trim()) return setErrorMsg("Password cannot be empty");
-
-    setLoading(true);
-    try {
-      const { error } = await supabase.auth.updateUser({
-        password: newPass,
-      });
-      if (error) throw error;
-      Alert.alert("Success", "Password updated successfully");
     } catch (err: any) {
       setErrorMsg(err.message);
     } finally {
@@ -122,65 +91,34 @@ function ForgotPasswordScreen() {
         {/* TITLE */}
         <Text style={styles.title}>Reset Password</Text>
         <Text style={styles.subtitle}>
-          {step === 1 && "Receive a reset link"}
-          {step === 2 && "Verify your email"}
-          {step === 3 && "Create a new password"}
+          Enter your email to receive a reset link
         </Text>
 
         {/* STATUS */}
         {errorMsg ? <Text style={styles.error}>{errorMsg}</Text> : null}
         {successMsg ? <Text style={styles.success}>{successMsg}</Text> : null}
 
-        {/* INPUTS */}
-        {step === 1 && (
-          <TextInput
-            style={styles.input}
-            placeholder="Email address"
-            placeholderTextColor="#777"
-            autoCapitalize="none"
-            keyboardType="email-address"
-            value={email}
-            onChangeText={setEmail}
-          />
-        )}
+        {/* EMAIL */}
+        <TextInput
+          style={styles.input}
+          placeholder="Email address"
+          placeholderTextColor="#888"
+          autoCapitalize="none"
+          keyboardType="email-address"
+          value={email}
+          onChangeText={setEmail}
+        />
 
-        {step === 2 && (
-          <TextInput
-            style={styles.input}
-            placeholder="Verification code"
-            placeholderTextColor="#777"
-            value={code}
-            onChangeText={setCode}
-          />
-        )}
-
-        {step === 3 && (
-          <TextInput
-            style={styles.input}
-            placeholder="New password"
-            placeholderTextColor="#777"
-            secureTextEntry
-            value={newPass}
-            onChangeText={setNewPass}
-          />
-        )}
-
-        {/* ACTION */}
+        {/* CTA */}
         <TouchableOpacity
-          style={styles.button}
+          style={[styles.button, loading && { opacity: 0.8 }]}
           disabled={loading}
-          onPress={
-            step === 1 ? sendEmailCode : step === 2 ? verifyCode : resetPasswordNow
-          }
+          onPress={sendReset}
         >
           {loading ? (
-            <ActivityIndicator color="#000" />
+            <ActivityIndicator color="#fff" />
           ) : (
-            <Text style={styles.buttonText}>
-              {step === 1 && "Send Email"}
-              {step === 2 && "Verify"}
-              {step === 3 && "Reset Password"}
-            </Text>
+            <Text style={styles.buttonText}>Send Reset Link</Text>
           )}
         </TouchableOpacity>
 
@@ -198,10 +136,12 @@ function ForgotPasswordScreen() {
 
 /* ---------------- STYLES ---------------- */
 
+const PURPLE = "#5b3deb";
+
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: "#050505",
+    backgroundColor: "#000",
     alignItems: "center",
     justifyContent: "center",
     padding: 20,
@@ -209,61 +149,59 @@ const styles = StyleSheet.create({
 
   card: {
     width: "100%",
-    maxWidth: 380,
-    backgroundColor: "#0d0d0d",
-    borderRadius: 20,
-    padding: 24,
+    maxWidth: 400,
+    backgroundColor: "#0c0c0c",
+    borderRadius: 22,
+    padding: 26,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.06)",
   },
 
   logo: {
-    width: 52,
-    height: 52,
+    width: 60,
+    height: 60,
     resizeMode: "contain",
     alignSelf: "center",
-    marginBottom: 14,
+    marginBottom: 18,
   },
 
   title: {
     color: "#fff",
-    fontSize: 22,
-    fontWeight: "800",
+    fontSize: 26,
+    fontWeight: "900",
     textAlign: "center",
   },
 
   subtitle: {
-    color: "#888",
-    fontSize: 13,
+    color: "#9a9a9a",
     textAlign: "center",
-    marginBottom: 18,
+    marginBottom: 20,
     marginTop: 4,
   },
 
   input: {
     backgroundColor: "#141414",
-    borderRadius: 12,
+    borderRadius: 14,
     paddingVertical: 14,
     paddingHorizontal: 14,
     color: "#fff",
-    fontSize: 15,
-    marginBottom: 14,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.05)",
+    borderColor: "rgba(255,255,255,0.08)",
+    marginBottom: 14,
   },
 
   button: {
-    backgroundColor: "#fff",
-    paddingVertical: 14,
+    backgroundColor: PURPLE,
+    paddingVertical: 16,
     borderRadius: 14,
     alignItems: "center",
     marginTop: 6,
   },
 
   buttonText: {
-    color: "#000",
-    fontWeight: "800",
-    fontSize: 15,
+    color: "#fff",
+    fontWeight: "900",
+    fontSize: 16,
   },
 
   backRow: {
@@ -273,24 +211,24 @@ const styles = StyleSheet.create({
   },
 
   backText: {
-    color: "#666",
-    marginRight: 4,
+    color: "#888",
+    marginRight: 6,
   },
 
   backLink: {
-    color: "#fff",
-    fontWeight: "700",
+    color: PURPLE,
+    fontWeight: "800",
   },
 
   error: {
-    color: "#ff6b6b",
+    color: "#ff5c5c",
     textAlign: "center",
-    marginBottom: 10,
+    marginBottom: 12,
   },
 
   success: {
     color: "#4ade80",
     textAlign: "center",
-    marginBottom: 10,
+    marginBottom: 12,
   },
 });
