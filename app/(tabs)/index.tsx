@@ -350,9 +350,10 @@ export default function Page() {
 
         <View style={styles.headerRow}>
           <Image
-            source={require("../../assets/images/icon.png")}
+            source={require("../../../assets/images/icon.png")}
             style={styles.logo}
           />
+          
 
           <View>
             <Text style={styles.headerTitle}>VAD DEPOT</Text>
