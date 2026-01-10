@@ -1,15 +1,15 @@
 {
   "expo": {
-    "name": "vad",
-    "slug": "vad-mobile",
+    "name": "BESTCITY",
+    "slug": "bestcity-pay",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "vadmobile",
+    "scheme": "bestcitypay",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "android": {
-      "package": "com.vadminingspace.vadmobile",
+      "package": "com.bestcity.pay",
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "permissions": [
@@ -55,14 +55,14 @@
       "typedRoutes": true,
       "reactCompiler": true
     },
-    "owner": "skima1122",
+    "owner": "dog-best",
     "ios": {
-      "bundleIdentifier": "com.vadminingspace.vadmobile"
+      "bundleIdentifier": "com.bestcity.pay"
     },
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "a96dba87-96ff-4f7e-95e3-ba8c87a8554a"
+        "projectId": "da816579-2f95-4e69-b9ff-98ab184bef2e"
       }
     }
   }

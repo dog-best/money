@@ -1,8 +1,8 @@
 // app/(tabs)/_layout.tsx
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
 import React from "react";
 import { Platform, View } from "react-native";
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 
 import { HapticTab } from "@/components/haptic-tab";
 import { Colors } from "@/constants/theme";
@@ -73,9 +73,9 @@ export default function TabLayout() {
 
       {/* EXPLORE */}
       <Tabs.Screen
-        name="explore"
+        name="wallet"
         options={{
-          title: "Explore",
+          title: "wallet",
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
               name={focused ? "rocket" : "rocket-outline"}
