@@ -1,21 +1,21 @@
 // app/(tabs)/profile.tsx
-import React, { useEffect, useRef, useState, useCallback } from "react";
+import { Ionicons } from "@expo/vector-icons";
+import * as Clipboard from "expo-clipboard";
+import { useRouter } from "expo-router";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
+  Alert,
   Animated,
   Easing,
   Pressable,
-  Alert,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-import * as Clipboard from "expo-clipboard";
-import { supabase } from "../../supabase/client";
 import { getUserData } from "../../services/user";
-import { useRouter } from "expo-router";
-import ReferralLeaderboardModal from "../../components/ReferralLeaderboardModal";
+import { supabase } from "../../supabase/client";
+
 
 
 export default function Profile() {
@@ -194,11 +194,7 @@ function ProfileScreen() {
           <Text style={styles.logoutText}>Log out</Text>
         </Pressable>
 
-        <ReferralLeaderboardModal
-  visible={showLeaderboard}
-  onClose={() => setShowLeaderboard(false)}
-  userId={uid}
-/>
+
       </ScrollView>
     </Animated.View>
 
