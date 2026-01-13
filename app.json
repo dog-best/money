@@ -58,7 +58,12 @@
     "owner": "dog-best",
     "ios": {
       "bundleIdentifier": "com.bestcity.pay"
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "53b57610-c7ae-4da0-bde4-4e20a8d12bc8"
+      }
     }
-    
   }
 }
