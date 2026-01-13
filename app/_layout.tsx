@@ -1,15 +1,15 @@
 // app/_layout.tsx
-import { Slot, Redirect, useSegments } from "expo-router";
+import { Redirect, Slot, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import {
-  View,
-  ActivityIndicator,
-  Platform,
-  Text,
-  Pressable,
-  StyleSheet,
-} from "react-native";
 import { useEffect, useState } from "react";
+import {
+    ActivityIndicator,
+    Platform,
+    Pressable,
+    StyleSheet,
+    Text,
+    View,
+} from "react-native";
 import { useAuth } from "../hooks/useAuth";
 import { supabase } from "../supabase/client";
 
@@ -146,33 +146,30 @@ export default function RootLayout() {
       </View>
     );
   }
-
   /* ---------------- ROUTING ---------------- */
 
-  const group = segments[0];
+   /* ---------------- ROUTING ---------------- */
 
-  if (!user && group === "(tabs)") {
-    return <Redirect href="/(auth)/login" />;
+  const inAuthGroup = segments[0] === "(auth)";
+
+  // 🔐 Not logged in → Auth group
+  if (!user && !inAuthGroup) {
+    return <Redirect href="/(auth)" />;
   }
 
-  if (user && !onboarded && group !== "(onboarding)") {
-    return <Redirect href="/(onboarding)/profileSetup" />;
-  }
-
-  if (
-    user &&
-    onboarded &&
-    (group === "(auth)" || group === "(onboarding)")
-  ) {
+  // ✅ Logged in → Always go to tabs (index.tsx)
+  if (user && inAuthGroup) {
     return <Redirect href="/(tabs)" />;
   }
 
   return (
     <>
+      <StatusBar style="light" />
       <Slot />
-      <StatusBar style="auto" />
     </>
   );
+
+  
 }
 
 /* ---------------- STYLES ---------------- */

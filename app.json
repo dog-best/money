@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "BC pay",
-    "slug": "bestcity-pay",
+    "name": "BCpay",
+    "slug": "Bestcity-pay-BCpay",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -62,7 +62,7 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "da816579-2f95-4e69-b9ff-98ab184bef2e"
+        "projectId": "4a656a7a-342f-48da-ba8c-f9b6f2d41b09"
       }
     }
   }

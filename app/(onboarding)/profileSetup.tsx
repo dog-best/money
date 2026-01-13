@@ -2,18 +2,18 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  Animated,
-  Easing,
-  Image,
-  StyleSheet,
-  ActivityIndicator,
+    ActivityIndicator,
+    Alert,
+    Animated,
+    Easing,
+    Image,
+    KeyboardAvoidingView,
+    Platform,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 
 import * as ImagePicker from "expo-image-picker";
@@ -132,7 +132,7 @@ function ProfileSetupScreen() {
       }
 
       const { error } = await supabase
-        .from("user_profiles")
+        .from("profiles")
         .update({
           username: username.trim(),
           avatar_url: avatarUrl,
