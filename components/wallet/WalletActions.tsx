@@ -1,20 +1,37 @@
-import { Pressable, Text, View } from "react-native";
+import { useState } from "react";
+import { Text, TouchableOpacity, View } from "react-native";
+import FundWalletModal from "./FundWalletModal";
+import WithdrawWalletModal from "./WithdrawWalletModal";
 
-export default function WalletActions({ onFundPress }: any) {
+export default function WalletActions() {
+  const [fundVisible, setFundVisible] = useState(false);
+  const [withdrawVisible, setWithdrawVisible] = useState(false);
+
   return (
-    <View style={{ flexDirection: "row", marginVertical: 16 }}>
-      <Pressable
-        onPress={onFundPress}
-        style={{
-          paddingVertical: 14,
-          paddingHorizontal: 20,
-          backgroundColor: "#5b3deb",
-          borderRadius: 12,
-          marginRight: 12,
-        }}
+    <View className="flex-row justify-between mt-4">
+      <TouchableOpacity
+        className="bg-green-600 flex-1 mr-2 py-3 rounded items-center"
+        onPress={() => setFundVisible(true)}
       >
-        <Text style={{ color: "#fff", fontWeight: "bold" }}>Fund Wallet</Text>
-      </Pressable>
+        <Text className="text-white font-medium">Deposit</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        className="bg-blue-600 flex-1 ml-2 py-3 rounded items-center"
+        onPress={() => setWithdrawVisible(true)}
+      >
+        <Text className="text-white font-medium">Withdraw</Text>
+      </TouchableOpacity>
+
+      <FundWalletModal
+        visible={fundVisible}
+        onClose={() => setFundVisible(false)}
+      />
+
+      <WithdrawWalletModal
+        visible={withdrawVisible}
+        onClose={() => setWithdrawVisible(false)}
+      />
     </View>
   );
 }

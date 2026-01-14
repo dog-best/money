@@ -1,6 +1,6 @@
+import { User } from "@supabase/supabase-js";
 import { useEffect, useState } from "react";
 import { supabase } from "../supabase/client";
-import { User } from "@supabase/supabase-js";
 
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
@@ -21,7 +21,7 @@ export function useAuth() {
 
       if (user) {
         const { data: profile, error } = await supabase
-          .from("user_profiles")
+          .from("profiles")
           .select("*")
           .eq("user_id", user.id)
           .maybeSingle(); // 🔥 FIX
@@ -51,7 +51,7 @@ export function useAuth() {
 
         if (user) {
           const { data: profile } = await supabase
-            .from("user_profiles")
+            .from("profiles")
             .select("*")
             .eq("user_id", user.id)
             .maybeSingle(); // 🔥 FIX

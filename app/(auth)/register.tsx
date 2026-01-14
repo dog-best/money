@@ -1,21 +1,21 @@
 // app/auth/register.tsx
 
+import { Ionicons } from "@expo/vector-icons";
+import { Link, useRouter } from "expo-router";
 import { useState } from "react";
 import {
-  View,
+  ActivityIndicator,
+  Image,
+  Pressable,
+  StyleSheet,
   Text,
   TextInput,
-  StyleSheet,
-  ActivityIndicator,
-  Pressable,
   TouchableOpacity,
-  Image,
+  View,
 } from "react-native";
-import { Link, useRouter } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
 import Animated, {
-  FadeInUp,
   FadeInDown,
+  FadeInUp,
   useAnimatedStyle,
   withTiming,
 } from "react-native-reanimated";
@@ -86,7 +86,7 @@ function RegisterScreen() {
       if (!data.user) throw new Error("User not created");
 
       // Optional profile table insert (safe to remove if unused)
-      await supabase.from("user_profiles").insert({
+      await supabase.from("profiles").insert({
         user_id: data.user.id,
         created_at: new Date().toISOString(),
       });
