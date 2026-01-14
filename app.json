@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "BCpay",
-    "slug": "BCpay",
+    "slug": "bc-pay",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -55,14 +55,14 @@
       "typedRoutes": true,
       "reactCompiler": true
     },
-    "owner": "dog-best",
+    "owner": "bcnath",
     "ios": {
       "bundleIdentifier": "com.bestcity.pay"
     },
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "53b57610-c7ae-4da0-bde4-4e20a8d12bc8"
+        "projectId": "46a9395b-aee9-49de-bf0f-c143f762acd0"
       }
     }
   }
