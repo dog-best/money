@@ -1,8 +1,15 @@
+import ConfirmPurchaseModal from "@/components/common/ConfirmPurchaseModal";
 import { useMakePurchase } from "@/hooks/useMakePurchase";
 import { useProviders } from "@/hooks/useProviders";
 import React, { useState } from "react";
-import { ActivityIndicator, Text, TextInput, TouchableOpacity, View } from "react-native";
-import ConfirmModal from "./ConfirmModal";
+import {
+  ActivityIndicator,
+  Alert,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import ProviderSelect from "./ProviderSelect";
 
 export default function AirtimeScreen() {
@@ -16,15 +23,35 @@ export default function AirtimeScreen() {
 
   const submit = async () => {
     setConfirmVisible(false);
-    const payload = { provider, phone, amount: Number(amount) };
-    await buyAirtime(payload);
+
+    const payload = {
+      provider,
+      phone,
+      amount: Number(amount),
+      reference: `AIRTIME-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    };
+
+    try {
+      await buyAirtime(payload);
+      Alert.alert("Success", "Airtime purchase successful");
+      setAmount("");
+      // optional:
+      // setPhone("");
+      // setProvider("");
+    } catch (e: any) {
+      Alert.alert("Failed", e?.message ?? "Airtime purchase failed");
+    }
   };
 
   return (
     <View className="flex-1 p-4 gap-4 bg-white">
       <Text className="text-xl font-semibold">Buy Airtime</Text>
 
-      <ProviderSelect providers={providers} value={provider} onChange={setProvider} />
+      <ProviderSelect
+        providers={providers}
+        value={provider}
+        onChange={setProvider}
+      />
 
       <TextInput
         placeholder="Phone Number"
@@ -47,18 +74,25 @@ export default function AirtimeScreen() {
         onPress={() => setConfirmVisible(true)}
         className="bg-blue-600 rounded-lg p-4"
       >
-        {loading ? <ActivityIndicator /> :
-          <Text className="text-white text-center font-medium">Continue</Text>}
+        {loading ? (
+          <ActivityIndicator />
+        ) : (
+          <Text className="text-white text-center font-medium">Continue</Text>
+        )}
       </TouchableOpacity>
-<ConfirmModal
-  visible={confirmVisible}
-  phone={phone}
-  amount={Number(amount)}
-  provider={provider}
-  onClose={() => setConfirmVisible(false)}
-  onConfirm={submit}
-/>
 
+      <ConfirmPurchaseModal
+        visible={confirmVisible}
+        lines={[
+          { label: "Provider", value: provider?.toUpperCase() },
+          { label: "Phone", value: phone },
+          { label: "Amount", value: `₦${Number(amount).toLocaleString()}` },
+        ]}
+        loading={loading}
+        onClose={() => setConfirmVisible(false)}
+        onConfirm={submit}
+      />
     </View>
   );
 }
+

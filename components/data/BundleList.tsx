@@ -1,24 +1,24 @@
 import React from "react";
 import { FlatList, Text, TouchableOpacity, View } from "react-native";
 
-interface BundleProduct {
+export type BundleProduct = {
   product_code: string;
   name: string;
   has_offer: boolean;
   base_price: number;
   final_price: number;
   bonus_data_mb: number;
-}
+  cashback?: number;
+  validity_label?: string | null;
+  data_size_mb?: number | null;
+};
 
-interface BundleListProps {
+type BundleListProps = {
   products: BundleProduct[];
   onSelect: (product: BundleProduct) => void;
-}
+};
 
-export default function BundleList({
-  products,
-  onSelect,
-}: BundleListProps) {
+export default function BundleList({ products, onSelect }: BundleListProps) {
   return (
     <FlatList<BundleProduct>
       data={products}
@@ -30,25 +30,25 @@ export default function BundleList({
         >
           <Text className="font-semibold">{item.name}</Text>
 
-          <View className="flex-row gap-2 mt-1">
+          <View className="flex-row gap-2 mt-1 flex-wrap">
             {item.has_offer ? (
               <>
                 <Text className="line-through text-gray-500">
-                  ₦{item.base_price}
+                  ₦{Number(item.base_price).toLocaleString()}
                 </Text>
                 <Text className="text-green-600 font-bold">
-                  ₦{item.final_price}
+                  ₦{Number(item.final_price).toLocaleString()}
                 </Text>
 
-                {item.bonus_data_mb > 0 && (
+                {Number(item.bonus_data_mb) > 0 && (
                   <Text className="text-orange-600">
-                    + {item.bonus_data_mb}MB bonus
+                    + {Number(item.bonus_data_mb).toLocaleString()}MB bonus
                   </Text>
                 )}
               </>
             ) : (
               <Text className="font-bold">
-                ₦{item.final_price}
+                ₦{Number(item.final_price).toLocaleString()}
               </Text>
             )}
           </View>

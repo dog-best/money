@@ -1,17 +1,19 @@
+import ConfirmPurchaseModal from "@/components/common/ConfirmPurchaseModal";
 import { useMakePurchase } from "@/hooks/useMakePurchase";
 import { useProviders } from "@/hooks/useProviders";
 import { useServiceProducts } from "@/hooks/useServiceProducts";
 import React, { useState } from "react";
-import { ActivityIndicator, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, Text, TouchableOpacity, View } from "react-native";
 import BundleList from "./BundleList";
-import ConfirmModal from "./ConfirmModal";
 import ProviderSelect from "./ProviderSelect";
 
 export default function DataScreen() {
   const { providers } = useProviders();
   const [provider, setProvider] = useState("");
 
-  const { products, loading: productsLoading } = useServiceProducts("data", provider);
+  const { products, loading: productsLoading, error: productsError } =
+    useServiceProducts("data", provider);
+
   const { buyData, loading } = useMakePurchase();
 
   const [selectedPlan, setSelectedPlan] = useState<any>(null);
@@ -20,23 +22,53 @@ export default function DataScreen() {
 
   const submit = async () => {
     setConfirmVisible(false);
+
+    if (!selectedPlan?.product_code) {
+      Alert.alert("Select a bundle", "Please choose a data bundle first.");
+      return;
+    }
+
+    if (!provider) {
+      Alert.alert("Select provider", "Please choose a network provider.");
+      return;
+    }
+
+    if (!phone) {
+      Alert.alert("Phone required", "Enter a phone number.");
+      return;
+    }
+
     const payload = {
       provider,
       phone,
       product_code: selectedPlan.product_code,
-      amount: Number(selectedPlan.final_price),
+      reference: `DATA-${Date.now()}-${Math.random().toString(16).slice(2)}`,
     };
-    await buyData(payload);
+
+    try {
+      await buyData(payload);
+      Alert.alert("Success", "Data purchase successful");
+      setSelectedPlan(null);
+      // optional:
+      // setPhone("");
+    } catch (e: any) {
+      Alert.alert("Failed", e?.message ?? "Data purchase failed");
+    }
   };
 
   return (
     <View className="flex-1 p-4 gap-4 bg-white">
       <Text className="text-xl font-semibold">Buy Data</Text>
 
-      <ProviderSelect providers={providers} value={provider} onChange={setProvider} />
+      <ProviderSelect providers={providers} value={provider} onChange={(v: string) => {
+        setProvider(v);
+        setSelectedPlan(null); // reset when changing network
+      }} />
 
       {productsLoading ? (
         <ActivityIndicator />
+      ) : productsError ? (
+        <Text className="text-red-500">{productsError}</Text>
       ) : (
         <BundleList products={products} onSelect={setSelectedPlan} />
       )}
@@ -52,15 +84,24 @@ export default function DataScreen() {
         </TouchableOpacity>
       )}
 
-      <ConfirmModal
+      <ConfirmPurchaseModal
         visible={confirmVisible}
-        product={selectedPlan}
+        lines={[
+          { label: "Plan", value: selectedPlan?.name ?? "" },
+          {
+            label: "Price",
+            value: `₦${Number(selectedPlan?.final_price ?? 0).toLocaleString()}`,
+          },
+          { label: "Provider", value: provider?.toUpperCase() },
+        ]}
         phone={phone}
-        setPhone={setPhone}
+        onPhoneChange={setPhone}
+        loading={loading}
         onClose={() => setConfirmVisible(false)}
         onConfirm={submit}
-        loading={loading}
       />
     </View>
   );
 }
+
+
