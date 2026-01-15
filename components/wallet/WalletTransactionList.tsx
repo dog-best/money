@@ -1,26 +1,45 @@
-import { useWallet } from "@/hooks/useWallet";
-import { FlatList, Text, View } from "react-native";
+import { useLedger } from "@/hooks/useLedger";
+import { ActivityIndicator, FlatList, Text, View } from "react-native";
 
 export default function WalletTransactionList() {
-  const { transactions } = useWallet();
+  const { entries, loading, error } = useLedger(20);
+
+  if (loading) {
+    return <ActivityIndicator className="mt-4" />;
+  }
+
+  if (error) {
+    return <Text className="text-red-400 mt-4">{error}</Text>;
+  }
+
+  if (!entries.length) {
+    return <Text className="text-gray-400 mt-4">No transactions yet</Text>;
+  }
 
   return (
     <FlatList
-      data={transactions}
+      data={entries}
       keyExtractor={(item) => item.id}
       renderItem={({ item }) => (
-        <View
-          style={{
-            flexDirection: "row",
-            justifyContent: "space-between",
-            paddingVertical: 10,
-          }}
-        >
-          <Text style={{ color: "#fff" }}>
-            {item.type === "CREDIT" ? "➕" : "➖"} {item.description}
-          </Text>
-          <Text style={{ color: item.type === "CREDIT" ? "#4ade80" : "#f87171" }}>
-            ₦{Number(item.amount).toLocaleString()}
+        <View className="flex-row justify-between py-3 border-b border-gray-800">
+          <View>
+            <Text className="text-white font-medium capitalize">
+              {item.metadata?.type || "Transaction"}
+            </Text>
+            <Text className="text-gray-500 text-xs">
+              {new Date(item.created_at).toLocaleString()}
+            </Text>
+          </View>
+
+          <Text
+            className={`font-semibold ${
+              item.direction === "credit"
+                ? "text-green-400"
+                : "text-red-400"
+            }`}
+          >
+            {item.direction === "credit" ? "+" : "-"}₦
+            {item.amount.toLocaleString()}
           </Text>
         </View>
       )}

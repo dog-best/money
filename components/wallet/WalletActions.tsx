@@ -3,35 +3,48 @@ import { Text, TouchableOpacity, View } from "react-native";
 import FundWalletModal from "./FundWalletModal";
 import WithdrawWalletModal from "./WithdrawWalletModal";
 
+
 export default function WalletActions() {
-  const [fundVisible, setFundVisible] = useState(false);
-  const [withdrawVisible, setWithdrawVisible] = useState(false);
+  const [showFund, setShowFund] = useState(false);
+  const [showWithdraw, setShowWithdraw] = useState(false);
+  const [showSend, setShowSend] = useState(false);
 
   return (
-    <View className="flex-row justify-between mt-4">
-      <TouchableOpacity
-        className="bg-green-600 flex-1 mr-2 py-3 rounded items-center"
-        onPress={() => setFundVisible(true)}
-      >
-        <Text className="text-white font-medium">Deposit</Text>
-      </TouchableOpacity>
+    <>
+      <View className="flex-row justify-between mb-6">
+        <ActionButton label="Fund" onPress={() => setShowFund(true)} />
+        <ActionButton label="Send" onPress={() => setShowSend(true)} />
+        <ActionButton label="Withdraw" onPress={() => setShowWithdraw(true)} />
+      </View>
 
-      <TouchableOpacity
-        className="bg-blue-600 flex-1 ml-2 py-3 rounded items-center"
-        onPress={() => setWithdrawVisible(true)}
-      >
-        <Text className="text-white font-medium">Withdraw</Text>
-      </TouchableOpacity>
-
-      <FundWalletModal
-        visible={fundVisible}
-        onClose={() => setFundVisible(false)}
-      />
-
+      <FundWalletModal visible={showFund} onClose={() => setShowFund(false)} />
       <WithdrawWalletModal
-        visible={withdrawVisible}
-        onClose={() => setWithdrawVisible(false)}
+        visible={showWithdraw}
+        onClose={() => setShowWithdraw(false)}
       />
-    </View>
+    </>
+  );
+}
+
+function ActionButton({
+  label,
+  onPress,
+  disabled,
+}: {
+  label: string;
+  onPress?: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <TouchableOpacity
+      disabled={disabled}
+      onPress={onPress}
+      className={`flex-1 mx-1 py-3 rounded-xl ${
+        disabled ? "bg-gray-700" : "bg-green-600"
+      }`}
+    >
+      <Text className="text-white text-center font-semibold">{label}</Text>
+    </TouchableOpacity>
+    
   );
 }
