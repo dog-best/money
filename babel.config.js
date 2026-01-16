@@ -11,12 +11,12 @@ module.exports = function (api) {
       ],
     ],
     plugins: [
-      "expo-router/babel",
       "nativewind/babel",
       "react-native-reanimated/plugin", // MUST be last
     ],
   };
 };
+
 
 
 
