@@ -18,5 +18,8 @@
     "**/*.tsx",
     ".expo/types/**/*.ts",
     "expo-env.d.ts"
-, "utils/notifications.ts"  ]
+, "utils/notifications.ts"  ],
+  "exclude": [
+    "supabase/functions/**"
+  ]
 }

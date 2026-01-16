@@ -26,9 +26,11 @@ export function useWallet() {
     setError(null);
 
     const { data, error } = await supabase
-      .from("wallet_balances")
-      .select("account_id, balance, last_activity_at")
-      .single();
+  .from("wallet_balances")
+  .select("account_id, balance, last_activity_at")
+  .eq("user_id", user.id)
+  .single();
+
 
     if (error) {
       console.error("Wallet fetch error:", error);
