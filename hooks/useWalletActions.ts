@@ -2,66 +2,39 @@ import { generateReference } from "@/services/utils";
 import { supabase } from "@/supabase/client";
 
 export function useWalletActions() {
-  // 1️⃣ Fund wallet (Paystack Init)
-  const fundWallet = async (amount: number) => {
-    const reference = generateReference("FUND");
-
-    const { data, error } = await supabase.functions.invoke(
-      "paystack-init",
-      {
-        body: { amount, reference },
-      }
-    );
-
+  // ✅ Fund wallet (DVA)
+  const getFundingAccount = async () => {
+    const { data, error } = await supabase.functions.invoke("paystack-dva", {
+      body: {},
+    });
     if (error) throw new Error(error.message);
-
-    return data; // authorization_url
+    if (!data?.success) throw new Error(data?.message ?? "Failed to load account");
+    return data.account;
   };
 
-  // 2️⃣ Send money (internal transfer)
+  // ✅ Send money + Withdraw remain (we will refactor them next)
   const sendMoney = async (receiverId: string, amount: number) => {
     const reference = generateReference("TRANSFER");
 
-    const { error } = await supabase.functions.invoke(
-      "wallet-transfer",
-      {
-        body: { receiver_id: receiverId, amount, reference },
-      }
-    );
+    const { error } = await supabase.functions.invoke("wallet-transfer", {
+      body: { receiver_id: receiverId, amount, reference },
+    });
 
     if (error) throw new Error(error.message);
-
     return true;
   };
 
-  // 3️⃣ Withdraw to bank
-  const withdraw = async (
-    amount: number,
-    bank_code: string,
-    account_number: string
-  ) => {
+  const withdraw = async (amount: number, bank_code: string, account_number: string) => {
     const reference = generateReference("WITHDRAW");
 
-    const { error } = await supabase.functions.invoke(
-      "paystack-withdraw",
-      {
-        body: {
-          amount,
-          bank_code,
-          account_number,
-          reference,
-        },
-      }
-    );
+    const { error } = await supabase.functions.invoke("paystack-withdraw", {
+      body: { amount, bank_code, account_number, reference },
+    });
 
     if (error) throw new Error(error.message);
-
     return true;
   };
 
-  return {
-    fundWallet,
-    sendMoney,
-    withdraw,
-  };
+  return { getFundingAccount, sendMoney, withdraw };
 }
+
