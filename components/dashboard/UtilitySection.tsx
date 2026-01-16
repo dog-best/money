@@ -1,22 +1,22 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { type Href, useRouter } from "expo-router";
 import React from "react";
 import { Text, TouchableOpacity, View } from "react-native";
 
 type Tile = {
   label: string;
   icon: keyof typeof Ionicons.glyphMap;
-  route: string; // ✅ keep as string
+  href: Href;
 };
 
 export default function UtilitySection() {
   const router = useRouter();
 
   const tiles: Tile[] = [
-    { label: "Data", icon: "wifi", route: "/(tabs)/data" },
-    { label: "Airtime", icon: "call", route: "/(tabs)/airtime" },
-    { label: "Electricity", icon: "flash", route: "/(tabs)/electricity" },
-    { label: "Betting", icon: "football", route: "/(tabs)/betting" },
+    { label: "Data", icon: "wifi", href: "/data" as Href },
+    { label: "Airtime", icon: "call", href: "/airtime" as Href },
+    { label: "Electricity", icon: "flash", href: "/electricity" as Href },
+    { label: "Betting", icon: "football", href: "/betting" as Href },
   ];
 
   return (
@@ -30,7 +30,7 @@ export default function UtilitySection() {
         {tiles.map((t) => (
           <TouchableOpacity
             key={t.label}
-            onPress={() => router.push(t.route as any)} // ✅ cast fixes expo-router typing issues
+            onPress={() => router.push(t.href)}
             className="w-[48%] bg-white/10 border border-white/10 rounded-2xl p-4"
           >
             <View className="w-10 h-10 rounded-xl bg-[#6D28D9]/30 items-center justify-center">
@@ -45,4 +45,3 @@ export default function UtilitySection() {
     </View>
   );
 }
-

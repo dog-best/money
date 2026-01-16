@@ -3,22 +3,34 @@
   "compilerOptions": {
     "strict": true,
     "jsx": "react-native",
-    "types": ["expo", "react", "react-native", "node"],
-    "lib": ["ES2015", "DOM"],
+    "types": [
+      "expo",
+      "react",
+      "react-native",
+      "node"
+    ],
+    "lib": [
+      "ES2015",
+      "DOM"
+    ],
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "paths": {
-      "@/*": ["./*"]
+      "@/*": [
+        "./*"
+      ]
     }
   },
   "include": [
     "**/*.ts",
     "**/*.tsx",
     ".expo/types/**/*.ts",
-    "expo-env.d.ts"
-, "utils/notifications.ts"  ],
+    "expo-env.d.ts",
+    "utils/notifications.ts",
+    "nativewind-env.d.ts"
+  ],
   "exclude": [
     "supabase/functions/**"
   ]

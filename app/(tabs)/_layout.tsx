@@ -10,11 +10,10 @@ import { useColorScheme } from "@/hooks/use-color-scheme";
 
 let BlurView: any = null;
 
-// Safe BlurView import (iOS only)
 if (Platform.OS === "ios") {
   try {
     BlurView = require("expo-blur").BlurView;
-  } catch (e) {
+  } catch {
     BlurView = View;
   }
 }
@@ -31,7 +30,6 @@ export default function TabLayout() {
         tabBarActiveTintColor: tint,
         tabBarInactiveTintColor: "#6B7280",
 
-        // 🌫️ Floating Glass Tab Bar
         tabBarBackground: () =>
           Platform.OS === "ios" ? (
             <BlurView intensity={70} tint="dark" style={{ flex: 1 }} />
@@ -71,14 +69,14 @@ export default function TabLayout() {
         }}
       />
 
-      {/* EXPLORE */}
+      {/* WALLET */}
       <Tabs.Screen
         name="wallet"
         options={{
-          title: "wallet",
+          title: "Wallet",
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
-              name={focused ? "rocket" : "rocket-outline"}
+              name={focused ? "wallet" : "wallet-outline"}
               size={focused ? 28 : 25}
               color={color}
             />
@@ -100,6 +98,13 @@ export default function TabLayout() {
           ),
         }}
       />
+
+      {/* HIDDEN ROUTES (still navigable, not shown in tab bar) */}
+      <Tabs.Screen name="data" options={{ href: null }} />
+      <Tabs.Screen name="airtime" options={{ href: null }} />
+      <Tabs.Screen name="electricity" options={{ href: null }} />
+      <Tabs.Screen name="betting" options={{ href: null }} />
     </Tabs>
   );
 }
+
