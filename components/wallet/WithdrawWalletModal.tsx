@@ -1,7 +1,14 @@
-import { generateReference } from "@/services/utils";
-import { supabase } from "@/supabase/client";
+import { useWalletActions } from "@/hooks/useWalletActions";
 import { useState } from "react";
-import { ActivityIndicator, Modal, Text, TextInput, TouchableOpacity, View } from "react-native";
+import {
+  ActivityIndicator,
+  Alert,
+  Modal,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 type Props = {
   visible: boolean;
@@ -9,44 +16,55 @@ type Props = {
 };
 
 export default function WithdrawWalletModal({ visible, onClose }: Props) {
+  const { withdraw } = useWalletActions();
+
   const [amount, setAmount] = useState("");
   const [bankCode, setBankCode] = useState("");
   const [accountNumber, setAccountNumber] = useState("");
   const [accountName, setAccountName] = useState("");
+
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const handleWithdraw = async () => {
-    setError(null);
+    const numericAmount = Number(amount);
 
     if (!amount || !bankCode || !accountNumber) {
-      setError("Please fill all required fields");
+      Alert.alert("Missing fields", "Please fill amount, bank code, and account number.");
       return;
     }
 
-    setLoading(true);
+    if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
+      Alert.alert("Invalid amount", "Enter a valid amount.");
+      return;
+    }
+
+    if (!/^\d{10}$/.test(accountNumber.trim())) {
+      Alert.alert("Invalid account number", "Account number must be 10 digits.");
+      return;
+    }
 
     try {
-      const { data, error } = await supabase.functions.invoke(
-        "paystack-withdraw",
-        {
-          body: {
-            amount: Number(amount),
-            bank_code: bankCode,
-            account_number: accountNumber,
-            account_name: accountName,
-            reference: generateReference("WD"),
-          },
-        }
+      setLoading(true);
+
+      const res = await withdraw(
+        numericAmount,
+        bankCode.trim(),
+        accountNumber.trim(),
+        accountName.trim() || undefined
       );
 
-      if (error || !data?.success) {
-        throw new Error(data?.message || "Withdrawal failed");
-      }
+      Alert.alert(
+        "Withdrawal started",
+        `Reference: ${res?.reference ?? "N/A"}\nStatus: ${res?.status ?? "processing"}`
+      );
 
       onClose();
+      setAmount("");
+      setBankCode("");
+      setAccountNumber("");
+      setAccountName("");
     } catch (err: any) {
-      setError(err.message || "Something went wrong");
+      Alert.alert("Withdrawal failed", err?.message ?? "Something went wrong");
     } finally {
       setLoading(false);
     }
@@ -56,13 +74,7 @@ export default function WithdrawWalletModal({ visible, onClose }: Props) {
     <Modal visible={visible} animationType="slide" transparent>
       <View className="flex-1 bg-black/50 justify-end">
         <View className="bg-white p-5 rounded-t-2xl">
-          <Text className="text-lg font-semibold mb-4">
-            Withdraw to Bank
-          </Text>
-
-          {error && (
-            <Text className="text-red-500 mb-2">{error}</Text>
-          )}
+          <Text className="text-lg font-semibold mb-4">Withdraw to Bank</Text>
 
           <TextInput
             placeholder="Amount (NGN)"
@@ -80,7 +92,7 @@ export default function WithdrawWalletModal({ visible, onClose }: Props) {
           />
 
           <TextInput
-            placeholder="Account Number"
+            placeholder="Account Number (10 digits)"
             keyboardType="numeric"
             value={accountNumber}
             onChangeText={setAccountNumber}
@@ -102,16 +114,11 @@ export default function WithdrawWalletModal({ visible, onClose }: Props) {
             {loading ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text className="text-white font-semibold">
-                Withdraw
-              </Text>
+              <Text className="text-white font-semibold">Withdraw</Text>
             )}
           </TouchableOpacity>
 
-          <TouchableOpacity
-            onPress={onClose}
-            className="mt-4 items-center"
-          >
+          <TouchableOpacity onPress={onClose} className="mt-4 items-center">
             <Text className="text-gray-500">Cancel</Text>
           </TouchableOpacity>
         </View>

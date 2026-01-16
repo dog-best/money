@@ -1,13 +1,13 @@
 import { useWalletActions } from "@/hooks/useWalletActions";
 import { useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    Modal,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  Modal,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
 export default function SendMoneyModal({
@@ -19,32 +19,34 @@ export default function SendMoneyModal({
 }) {
   const { sendMoney } = useWalletActions();
 
-  const [receiverId, setReceiverId] = useState("");
+  const [recipient, setRecipient] = useState("");
   const [amount, setAmount] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleSend = async () => {
-    if (!receiverId || !amount) {
-      Alert.alert("Error", "All fields are required");
+    const cleaned = recipient.trim();
+    const numericAmount = Number(amount);
+
+    if (!cleaned || !amount) {
+      Alert.alert("Error", "Recipient and amount are required");
       return;
     }
 
-    const numericAmount = Number(amount);
-
-    if (numericAmount <= 0) {
+    if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
       Alert.alert("Error", "Invalid amount");
       return;
     }
 
     try {
       setLoading(true);
-      await sendMoney(receiverId.trim(), numericAmount);
+      await sendMoney(cleaned, numericAmount);
       Alert.alert("Success", "Transfer successful");
+
       onClose();
-      setReceiverId("");
+      setRecipient("");
       setAmount("");
     } catch (err: any) {
-      Alert.alert("Transfer failed", err.message || "Something went wrong");
+      Alert.alert("Transfer failed", err?.message ?? "Something went wrong");
     } finally {
       setLoading(false);
     }
@@ -54,15 +56,15 @@ export default function SendMoneyModal({
     <Modal visible={visible} animationType="slide" transparent>
       <View className="flex-1 bg-black/70 justify-end">
         <View className="bg-black rounded-t-2xl p-5">
-          <Text className="text-white text-lg font-semibold mb-4">
-            Send Money
-          </Text>
+          <Text className="text-white text-lg font-semibold mb-4">Send Money</Text>
 
-          <Text className="text-gray-400 text-sm mb-1">Receiver User ID</Text>
+          <Text className="text-gray-400 text-sm mb-1">
+            Recipient (Public UID or 10-digit Account Number)
+          </Text>
           <TextInput
-            value={receiverId}
-            onChangeText={setReceiverId}
-            placeholder="Paste user ID"
+            value={recipient}
+            onChangeText={setRecipient}
+            placeholder="e.g. 9F7KQ2XM or 0123456789"
             placeholderTextColor="#666"
             className="bg-gray-900 text-white rounded-lg p-3 mb-4"
           />
@@ -85,9 +87,7 @@ export default function SendMoneyModal({
             {loading ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text className="text-white text-center font-semibold">
-                Send Money
-              </Text>
+              <Text className="text-white text-center font-semibold">Send Money</Text>
             )}
           </TouchableOpacity>
 

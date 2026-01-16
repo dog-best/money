@@ -85,21 +85,23 @@ export default function DataScreen() {
       )}
 
       <ConfirmPurchaseModal
-        visible={confirmVisible}
-        lines={[
-          { label: "Plan", value: selectedPlan?.name ?? "" },
-          {
-            label: "Price",
-            value: `₦${Number(selectedPlan?.final_price ?? 0).toLocaleString()}`,
-          },
-          { label: "Provider", value: provider?.toUpperCase() },
-        ]}
-        phone={phone}
-        onPhoneChange={setPhone}
-        loading={loading}
-        onClose={() => setConfirmVisible(false)}
-        onConfirm={submit}
-      />
+  visible={confirmVisible}
+  title="Confirm Data Purchase"
+  lines={[
+    { label: "Plan", value: selectedPlan?.name ?? "" },
+    { label: "Price", value: `₦${Number(selectedPlan?.final_price ?? 0).toLocaleString()}` },
+    { label: "Provider", value: provider?.toUpperCase() },
+  ]}
+  inputLabel="Phone Number"
+  inputPlaceholder="Enter phone number"
+  inputValue={phone}
+  onInputChange={setPhone}
+  inputKeyboardType="number-pad"
+  loading={loading}
+  onClose={() => setConfirmVisible(false)}
+  onConfirm={submit}
+/>
+
     </View>
   );
 }

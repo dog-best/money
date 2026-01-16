@@ -1,9 +1,43 @@
-import ServicesGrid from "../utility/ServicesGrid";
+import { Ionicons } from "@expo/vector-icons";
+import { Link, type Href } from "expo-router";
+import React from "react";
+import { Text, View } from "react-native";
+
+type Tile = {
+  label: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  href: Href;
+};
 
 export default function UtilitySection() {
+  const tiles: Tile[] = [
+    { label: "Data", icon: "wifi", href: "/data" as Href },
+    { label: "Airtime", icon: "call", href: "/airtime" as Href },
+    { label: "Electricity", icon: "flash", href: "/electricity" as Href },
+    { label: "Betting", icon: "football", href: "/betting" as Href },
+  ];
+
   return (
-    <div className="mt-6">
-      <ServicesGrid />
-    </div>
+    <View className="mt-6">
+      <View className="flex-row justify-between items-center mb-3">
+        <Text className="text-white text-lg font-bold">Services</Text>
+        <Text className="text-gray-400 text-sm">Tap to open</Text>
+      </View>
+
+      <View className="flex-row flex-wrap gap-3">
+        {tiles.map((t) => (
+          <Link key={t.label} href={t.href} asChild>
+            <View className="w-[48%] bg-white/10 border border-white/10 rounded-2xl p-4">
+              <View className="w-10 h-10 rounded-xl bg-[#6D28D9]/30 items-center justify-center">
+                <Ionicons name={t.icon} size={20} color="white" />
+              </View>
+
+              <Text className="text-white font-semibold mt-3">{t.label}</Text>
+              <Text className="text-gray-400 text-xs mt-1">Fast & secure</Text>
+            </View>
+          </Link>
+        ))}
+      </View>
+    </View>
   );
 }

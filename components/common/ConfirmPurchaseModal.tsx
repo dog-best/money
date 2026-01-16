@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useRef } from "react";
 import {
     ActivityIndicator,
     Modal,
@@ -12,12 +12,14 @@ type Props = {
   visible: boolean;
   title?: string;
 
-  // What we are showing
   lines: Array<{ label: string; value: string }>;
 
-  // Optional phone input (for Data screen use-case)
-  phone?: string;
-  onPhoneChange?: (v: string) => void;
+  // Optional single input (phone / recipient / etc.)
+  inputLabel?: string;
+  inputPlaceholder?: string;
+  inputValue?: string;
+  onInputChange?: (v: string) => void;
+  inputKeyboardType?: "default" | "number-pad" | "numeric";
 
   loading?: boolean;
 
@@ -28,15 +30,33 @@ type Props = {
 
 export default function ConfirmPurchaseModal({
   visible,
-  title = "Confirm Purchase",
+  title = "Confirm",
   lines,
-  phone,
-  onPhoneChange,
+
+  inputLabel,
+  inputPlaceholder = "Enter value",
+  inputValue,
+  onInputChange,
+  inputKeyboardType = "default",
+
   loading = false,
   onClose,
   onConfirm,
-  confirmText = "Pay",
+  confirmText = "Continue",
 }: Props) {
+  const locked = useRef(false);
+
+  const safeConfirm = async () => {
+    if (loading) return;
+    if (locked.current) return;
+    locked.current = true;
+    try {
+      await onConfirm();
+    } finally {
+      locked.current = false;
+    }
+  };
+
   return (
     <Modal visible={visible} transparent animationType="slide">
       <View className="flex-1 bg-black/60 justify-center p-6">
@@ -51,14 +71,19 @@ export default function ConfirmPurchaseModal({
             </View>
           ))}
 
-          {typeof phone === "string" && onPhoneChange && (
-            <TextInput
-              placeholder="Phone Number"
-              value={phone}
-              onChangeText={onPhoneChange}
-              keyboardType="number-pad"
-              className="border p-3 rounded-lg mt-4"
-            />
+          {typeof inputValue === "string" && onInputChange && (
+            <View className="mt-4">
+              {!!inputLabel && (
+                <Text className="text-xs text-gray-600 mb-1">{inputLabel}</Text>
+              )}
+              <TextInput
+                placeholder={inputPlaceholder}
+                value={inputValue}
+                onChangeText={onInputChange}
+                keyboardType={inputKeyboardType}
+                className="border p-3 rounded-lg"
+              />
+            </View>
           )}
 
           <View className="flex-row justify-between mt-6">
@@ -71,15 +96,11 @@ export default function ConfirmPurchaseModal({
             </TouchableOpacity>
 
             <TouchableOpacity
-              onPress={onConfirm}
+              onPress={safeConfirm}
               disabled={loading}
               className="px-4 py-3 bg-blue-600 rounded-lg"
             >
-              {loading ? (
-                <ActivityIndicator />
-              ) : (
-                <Text className="text-white">{confirmText}</Text>
-              )}
+              {loading ? <ActivityIndicator /> : <Text className="text-white">{confirmText}</Text>}
             </TouchableOpacity>
           </View>
         </View>
