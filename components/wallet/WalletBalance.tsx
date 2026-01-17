@@ -1,4 +1,4 @@
-import { useWallet } from "@/hooks/useWallet";
+import { useWallet } from "@/hooks/wallet/useWallet";
 import { ActivityIndicator, Text, View } from "react-native";
 
 export default function WalletBalance() {

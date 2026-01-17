@@ -1,4 +1,4 @@
-import type { LedgerEntry } from "@/hooks/useLedger";
+import type { LedgerEntry } from "@/hooks/wallet/useLedger";
 import React from "react";
 import { ActivityIndicator, Text, View } from "react-native";
 

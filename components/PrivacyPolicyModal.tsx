@@ -1,23 +1,23 @@
 import { useEffect, useState } from "react";
 import {
-  Modal,
-  View,
-  Text,
-  ScrollView,
-  Pressable,
-  StyleSheet,
-  Image,
   ActivityIndicator,
+  Image,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
 } from "react-native";
 
 // Local policy fallback
 import { LOCAL_POLICY, LocalPolicy } from "./policies/localPolicy";
 
 // Feature flag hook to switch between local / remote
-import { useFeatureFlag } from "../hooks/useFeatureFlag";
+import { useFeatureFlag } from "../hooks/policy/useFeatureFlag";
 
 // Optional remote fetch (used only if feature flag enabled)
-import { fetchRemotePolicy, RemotePolicy } from "../hooks/fetchRemotePolicy";
+import { fetchRemotePolicy, RemotePolicy } from "../hooks/policy/fetchRemotePolicy";
 
 type Policy = LocalPolicy | RemotePolicy;
 

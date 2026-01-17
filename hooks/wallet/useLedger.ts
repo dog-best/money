@@ -1,4 +1,4 @@
-import { useWallet } from "@/hooks/useWallet";
+import { useWallet } from "@/hooks/wallet/useWallet";
 import { supabase } from "@/supabase/client";
 import { useCallback, useEffect, useState } from "react";
 

@@ -1,4 +1,4 @@
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/hooks/authenication/useAuth";
 import React from "react";
 import { Text, View } from "react-native";
 

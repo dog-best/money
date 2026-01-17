@@ -9,8 +9,8 @@ import FundWalletModal from "@/components/wallet/FundWalletModal";
 import SendMoneyModal from "@/components/wallet/SendMoneyModal";
 import WithdrawWalletModal from "@/components/wallet/WithdrawWalletModal";
 
-import { useLedger } from "@/hooks/useLedger";
-import { useWallet } from "@/hooks/useWallet";
+import { useLedger } from "@/hooks/wallet/useLedger";
+import { useWallet } from "@/hooks/wallet/useWallet";
 
 export default function Dashboard() {
   const { balance, loading: walletLoading, error: walletError, refetch: refetchWallet } = useWallet();

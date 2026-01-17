@@ -1,4 +1,4 @@
-import { useVirtualAccount } from "@/hooks/useVirtualAccount";
+import { useVirtualAccount } from "@/hooks/wallet/useVirtualAccount";
 import * as Clipboard from "expo-clipboard";
 import { ActivityIndicator, Modal, Text, TouchableOpacity, View } from "react-native";
 

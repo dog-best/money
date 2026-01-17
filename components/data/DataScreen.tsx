@@ -1,7 +1,7 @@
 import ConfirmPurchaseModal from "@/components/common/ConfirmPurchaseModal";
-import { useMakePurchase } from "@/hooks/useMakePurchase";
-import { useProviders } from "@/hooks/useProviders";
-import { useServiceProducts } from "@/hooks/useServiceProducts";
+import { useMakePurchase } from "@/hooks/Purchase/useMakePurchase";
+import { useProviders } from "@/hooks/Purchase/useProviders";
+import { useServiceProducts } from "@/hooks/Purchase/useServiceProducts";
 import React, { useState } from "react";
 import { ActivityIndicator, Alert, Text, TouchableOpacity, View } from "react-native";
 import BundleList from "./BundleList";

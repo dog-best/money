@@ -1,4 +1,4 @@
-import { useWalletActions } from "@/hooks/useWalletActions";
+import { useWalletActions } from "@/hooks/wallet/useWalletActions";
 import { useState } from "react";
 import {
   ActivityIndicator,

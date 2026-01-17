@@ -1,6 +1,7 @@
+//components/airtime/AirtimeScreen.tsx
 import ConfirmPurchaseModal from "@/components/common/ConfirmPurchaseModal";
-import { useMakePurchase } from "@/hooks/useMakePurchase";
-import { useProviders } from "@/hooks/useProviders";
+import { useMakePurchase } from "@/hooks/Purchase/useMakePurchase";
+import { useProviders } from "@/hooks/Purchase/useProviders";
 import React, { useState } from "react";
 import {
   ActivityIndicator,
