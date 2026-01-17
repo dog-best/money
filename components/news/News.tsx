@@ -1,17 +1,17 @@
+import { Ionicons } from "@expo/vector-icons";
 import React, { useEffect, useState } from "react";
 import {
-  View,
-  Text,
-  Modal,
-  Pressable,
-  StyleSheet,
-  ScrollView,
-  Image,
-  ActivityIndicator,
-  Linking,
+    ActivityIndicator,
+    Image,
+    Linking,
+    Modal,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    View,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-import { supabase } from "../supabase/client";
+import { supabase } from "../../supabase/client";
 
 type Props = {
   visible: boolean;
