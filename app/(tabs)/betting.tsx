@@ -1,2 +1,2 @@
-import ServicesGrid from "@/components/utility/ServicesGrid";
+import ServicesGrid from "@/components/services/ServicesGrid";
 export default ServicesGrid;

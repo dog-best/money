@@ -1,13 +1,13 @@
+import { useMakePurchase } from "@/hooks/Purchase/useMakePurchase";
 import { generateReference } from "@/services/utils";
-import { supabase } from "@/supabase/client";
 import { useState } from "react";
 import {
-    ActivityIndicator,
-    Modal,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Modal,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
 type Props = {
@@ -23,10 +23,11 @@ const NETWORKS = [
 ];
 
 export default function AirtimeModal({ visible, onClose }: Props) {
+  const { buyAirtime, loading } = useMakePurchase();
+
   const [phone, setPhone] = useState("");
   const [amount, setAmount] = useState("");
   const [provider, setProvider] = useState("mtn");
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handlePurchase = async () => {
@@ -37,30 +38,24 @@ export default function AirtimeModal({ visible, onClose }: Props) {
       return;
     }
 
-    setLoading(true);
+    const numericAmount = Number(amount);
+    if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
+      setError("Please enter a valid amount");
+      return;
+    }
 
     try {
-      const { data, error } = await supabase.functions.invoke(
-        "paystack-airtime",
-        {
-          body: {
-            phone,
-            amount: Number(amount),
-            provider,
-            reference: generateReference("AIR"),
-          },
-        }
-      );
-
-      if (error || !data?.success) {
-        throw new Error("Airtime purchase failed");
-      }
+      await buyAirtime({
+        phone,
+        amount: numericAmount,
+        provider,
+        reference: generateReference("AIR"),
+      });
 
       onClose();
+      setAmount("");
     } catch (err: any) {
-      setError(err.message || "Something went wrong");
-    } finally {
-      setLoading(false);
+      setError(err?.message ?? "We couldn’t complete your request right now. Please try again.");
     }
   };
 
@@ -68,13 +63,9 @@ export default function AirtimeModal({ visible, onClose }: Props) {
     <Modal visible={visible} animationType="slide" transparent>
       <View className="flex-1 bg-black/50 justify-end">
         <View className="bg-white p-5 rounded-t-2xl">
-          <Text className="text-lg font-semibold mb-4">
-            Buy Airtime
-          </Text>
+          <Text className="text-lg font-semibold mb-4">Buy Airtime</Text>
 
-          {error && (
-            <Text className="text-red-500 mb-2">{error}</Text>
-          )}
+          {error && <Text className="text-red-500 mb-2">{error}</Text>}
 
           <TextInput
             placeholder="Phone number"
@@ -92,25 +83,16 @@ export default function AirtimeModal({ visible, onClose }: Props) {
             className="border p-3 rounded mb-3"
           />
 
-          {/* NETWORK SELECT */}
           <View className="flex-row justify-between mb-4">
             {NETWORKS.map((n) => (
               <TouchableOpacity
                 key={n.value}
                 onPress={() => setProvider(n.value)}
                 className={`px-3 py-2 rounded border ${
-                  provider === n.value
-                    ? "bg-primary border-primary"
-                    : "border-gray-300"
+                  provider === n.value ? "bg-primary border-primary" : "border-gray-300"
                 }`}
               >
-                <Text
-                  className={
-                    provider === n.value
-                      ? "text-white"
-                      : "text-gray-700"
-                  }
-                >
+                <Text className={provider === n.value ? "text-white" : "text-gray-700"}>
                   {n.label}
                 </Text>
               </TouchableOpacity>
@@ -122,19 +104,10 @@ export default function AirtimeModal({ visible, onClose }: Props) {
             disabled={loading}
             className="bg-primary py-4 rounded items-center"
           >
-            {loading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text className="text-white font-semibold">
-                Buy Airtime
-              </Text>
-            )}
+            {loading ? <ActivityIndicator color="#fff" /> : <Text className="text-white font-semibold">Buy Airtime</Text>}
           </TouchableOpacity>
 
-          <TouchableOpacity
-            onPress={onClose}
-            className="mt-4 items-center"
-          >
+          <TouchableOpacity onPress={onClose} className="mt-4 items-center">
             <Text className="text-gray-500">Cancel</Text>
           </TouchableOpacity>
         </View>

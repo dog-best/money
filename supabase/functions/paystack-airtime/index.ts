@@ -9,55 +9,133 @@ type PurchaseStatus =
   | "failed"
   | "refunded";
 
+type ErrorCode =
+  | "UNAUTHORIZED"
+  | "INVALID_REQUEST"
+  | "DUPLICATE_IN_PROGRESS"
+  | "DUPLICATE_COMPLETED"
+  | "INSUFFICIENT_FUNDS"
+  | "PROVIDER_ERROR"
+  | "BACKEND_ERROR";
+
+function json(status: number, body: Record<string, unknown>) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+function requestId() {
+  // cheap unique id for logs + client support
+  return crypto.randomUUID();
+}
+
+function safeMessageForStatus(code: ErrorCode) {
+  switch (code) {
+    case "UNAUTHORIZED":
+      return "Please sign in to continue.";
+    case "INVALID_REQUEST":
+      return "Please check your details and try again.";
+    case "DUPLICATE_IN_PROGRESS":
+      return "This transaction is already in progress. Please wait.";
+    case "DUPLICATE_COMPLETED":
+      return "This transaction has already been completed.";
+    case "INSUFFICIENT_FUNDS":
+      return "Insufficient wallet balance. Please fund your wallet and try again.";
+    case "PROVIDER_ERROR":
+      return "We couldn’t complete this purchase right now. Please try again shortly.";
+    default:
+      return "We couldn’t complete your request right now. Please try again.";
+  }
+}
+
+function isProbablyInsufficientFunds(err: unknown): boolean {
+  const msg = String((err as any)?.message ?? err ?? "").toLowerCase();
+  return (
+    msg.includes("insufficient") ||
+    msg.includes("balance") ||
+    msg.includes("not enough") ||
+    msg.includes("funds")
+  );
+}
+
 serve(async (req) => {
+  const rid = requestId();
+
+  // variables for refund logic
   let userAccountId: string | null = null;
   let utilityAccountId: string | null = null;
   let amount = 0;
   let reference = "";
+  let debited = false;
 
   try {
     if (req.method !== "POST") {
-      return new Response("Method not allowed", { status: 405 });
+      return json(405, {
+        success: false,
+        code: "INVALID_REQUEST",
+        message: safeMessageForStatus("INVALID_REQUEST"),
+        request_id: rid,
+      });
     }
 
-    // user-scoped client (uses user's Authorization header)
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      return json(401, {
+        success: false,
+        code: "UNAUTHORIZED",
+        message: safeMessageForStatus("UNAUTHORIZED"),
+        request_id: rid,
+      });
+    }
+
+    // user-scoped client (uses user's JWT)
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_ANON_KEY")!,
       {
-        global: {
-          headers: { Authorization: req.headers.get("Authorization")! },
-        },
+        global: { headers: { Authorization: authHeader } },
       }
     );
 
     /* 1) AUTH */
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
+    const { data: auth, error: authError } = await supabase.auth.getUser();
+    const user = auth?.user;
 
     if (!user || authError) {
-      return new Response("Unauthorized", { status: 401 });
+      return json(401, {
+        success: false,
+        code: "UNAUTHORIZED",
+        message: safeMessageForStatus("UNAUTHORIZED"),
+        request_id: rid,
+      });
     }
 
-    /* 2) INPUT */
-    const {
-      phone,
-      amount: inputAmount,
-      provider,
-      reference: inputReference,
-    } = await req.json();
-
-    if (!phone || !inputAmount || !provider || !inputReference) {
-      return new Response("Invalid payload", { status: 400 });
+    /* 2) INPUT (safe parsing) */
+    let payload: any = null;
+    try {
+      payload = await req.json();
+    } catch {
+      return json(400, {
+        success: false,
+        code: "INVALID_REQUEST",
+        message: safeMessageForStatus("INVALID_REQUEST"),
+        request_id: rid,
+      });
     }
 
-    amount = Number(inputAmount);
-    reference = String(inputReference);
+    const phone = String(payload?.phone ?? "").trim();
+    const provider = String(payload?.provider ?? "").trim();
+    reference = String(payload?.reference ?? "").trim();
+    amount = Number(payload?.amount ?? 0);
 
-    if (!Number.isFinite(amount) || amount <= 0) {
-      return new Response("Invalid amount", { status: 400 });
+    if (!phone || !provider || !reference || !Number.isFinite(amount) || amount <= 0) {
+      return json(400, {
+        success: false,
+        code: "INVALID_REQUEST",
+        message: safeMessageForStatus("INVALID_REQUEST"),
+        request_id: rid,
+      });
     }
 
     /* 3) ACCOUNTS */
@@ -77,51 +155,60 @@ serve(async (req) => {
       .single();
 
     if (uaErr || utilErr || !userAccount || !utilityAccount) {
-      return new Response("Ledger accounts not found", { status: 500 });
+      console.error(`[${rid}] ledger accounts not found`, { uaErr, utilErr });
+      return json(500, {
+        success: false,
+        code: "BACKEND_ERROR",
+        message: safeMessageForStatus("BACKEND_ERROR"),
+        request_id: rid,
+      });
     }
 
     userAccountId = userAccount.id;
     utilityAccountId = utilityAccount.id;
 
-    /* 4) IDEMPOTENCY / PURCHASE RECORD */
+    /* 4) IDEMPOTENCY */
     const { data: existing, error: existingErr } = await supabase
       .from("utility_purchases")
       .select("id,status,reference")
       .eq("reference", reference)
       .maybeSingle();
 
-    if (existingErr) throw existingErr;
+    if (existingErr) {
+      console.error(`[${rid}] existing lookup error`, existingErr);
+      return json(500, {
+        success: false,
+        code: "BACKEND_ERROR",
+        message: safeMessageForStatus("BACKEND_ERROR"),
+        request_id: rid,
+      });
+    }
 
     if (existing) {
       const status = existing.status as PurchaseStatus;
 
       if (status === "successful") {
-        return new Response(JSON.stringify({ success: true, reference }), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
+        return json(200, { success: true, reference, request_id: rid });
       }
 
       if (status === "pending" || status === "debited" || status === "processing") {
-        return new Response(
-          JSON.stringify({
-            success: false,
-            message: "Transaction already in progress",
-            reference,
-          }),
-          { status: 409, headers: { "Content-Type": "application/json" } }
-        );
+        return json(409, {
+          success: false,
+          code: "DUPLICATE_IN_PROGRESS",
+          message: safeMessageForStatus("DUPLICATE_IN_PROGRESS"),
+          reference,
+          request_id: rid,
+        });
       }
 
       if (status === "failed" || status === "refunded") {
-        return new Response(
-          JSON.stringify({
-            success: false,
-            message: "Transaction already completed (failed/refunded)",
-            reference,
-          }),
-          { status: 409, headers: { "Content-Type": "application/json" } }
-        );
+        return json(409, {
+          success: false,
+          code: "DUPLICATE_COMPLETED",
+          message: safeMessageForStatus("DUPLICATE_COMPLETED"),
+          reference,
+          request_id: rid,
+        });
       }
     } else {
       const { error: insErr } = await supabase.from("utility_purchases").insert({
@@ -134,10 +221,18 @@ serve(async (req) => {
         reference,
       });
 
-      if (insErr) throw insErr;
+      if (insErr) {
+        console.error(`[${rid}] insert purchase error`, insErr);
+        return json(500, {
+          success: false,
+          code: "BACKEND_ERROR",
+          message: safeMessageForStatus("BACKEND_ERROR"),
+          request_id: rid,
+        });
+      }
     }
 
-    /* 5) DEBIT USER (LEDGER) */
+    /* 5) DEBIT USER */
     const { error: ledgerError } = await supabase.rpc("post_transfer", {
       p_from_account: userAccountId,
       p_to_account: utilityAccountId,
@@ -146,15 +241,40 @@ serve(async (req) => {
       p_metadata: { type: "airtime", phone, provider },
     });
 
-    if (ledgerError) throw ledgerError;
+    if (ledgerError) {
+      console.error(`[${rid}] ledger transfer failed`, ledgerError);
 
-    // Mark debited (since your schema supports it)
+      if (isProbablyInsufficientFunds(ledgerError)) {
+        // keep purchase record consistent
+        await supabase
+          .from("utility_purchases")
+          .update({ status: "failed", provider_response: { reason: "insufficient_funds" } })
+          .eq("reference", reference);
+
+        return json(402, {
+          success: false,
+          code: "INSUFFICIENT_FUNDS",
+          message: safeMessageForStatus("INSUFFICIENT_FUNDS"),
+          request_id: rid,
+        });
+      }
+
+      return json(500, {
+        success: false,
+        code: "BACKEND_ERROR",
+        message: safeMessageForStatus("BACKEND_ERROR"),
+        request_id: rid,
+      });
+    }
+
+    debited = true;
+
     await supabase
       .from("utility_purchases")
       .update({ status: "debited" })
       .eq("reference", reference);
 
-    /* 6) PAYSTACK CALL */
+    /* 6) PAYSTACK */
     await supabase
       .from("utility_purchases")
       .update({ status: "processing" })
@@ -171,7 +291,6 @@ serve(async (req) => {
 
     const result = await res.json().catch(() => ({}));
 
-    /* 7) SUCCESS */
     if (res.ok && result?.status === true) {
       await supabase
         .from("utility_purchases")
@@ -182,13 +301,10 @@ serve(async (req) => {
         })
         .eq("reference", reference);
 
-      return new Response(JSON.stringify({ success: true, reference }), {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      });
+      return json(200, { success: true, reference, request_id: rid });
     }
 
-    // Mark failed before refund (clean audit)
+    // Provider failed — mark failed, then refund
     await supabase
       .from("utility_purchases")
       .update({
@@ -197,27 +313,43 @@ serve(async (req) => {
       })
       .eq("reference", reference);
 
-    throw new Error("Paystack airtime purchase failed");
-  } catch (err) {
-    console.error("AIRTIME PURCHASE ERROR:", err);
-
-    /* 8) REFUND (if debited already) */
-    if (userAccountId && utilityAccountId && amount && reference) {
+    // Refund when provider fails after debit
+    if (debited && userAccountId && utilityAccountId) {
       await refundUtilityPayment({
         userAccountId,
         utilityAccountId,
         amount,
         reference,
+        rid,
       });
     }
 
-    return new Response(
-      JSON.stringify({
-        success: false,
-        message: "Airtime failed. Wallet refunded.",
-      }),
-      { status: 500, headers: { "Content-Type": "application/json" } }
-    );
+    return json(502, {
+      success: false,
+      code: "PROVIDER_ERROR",
+      message: safeMessageForStatus("PROVIDER_ERROR"),
+      request_id: rid,
+    });
+  } catch (err) {
+    console.error(`[${rid}] AIRTIME PURCHASE ERROR:`, err);
+
+    // Refund only if we KNOW debit happened
+    if (debited && userAccountId && utilityAccountId && amount && reference) {
+      await refundUtilityPayment({
+        userAccountId,
+        utilityAccountId,
+        amount,
+        reference,
+        rid,
+      });
+    }
+
+    return json(500, {
+      success: false,
+      code: "BACKEND_ERROR",
+      message: safeMessageForStatus("BACKEND_ERROR"),
+      request_id: rid,
+    });
   }
 });
 
@@ -226,29 +358,34 @@ async function refundUtilityPayment({
   utilityAccountId,
   amount,
   reference,
+  rid,
 }: {
   userAccountId: string;
   utilityAccountId: string;
   amount: number;
   reference: string;
+  rid: string;
 }) {
-  const admin = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-  );
+  try {
+    const admin = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
 
-  // Reverse ledger transfer
-  await admin.rpc("post_transfer", {
-    p_from_account: utilityAccountId,
-    p_to_account: userAccountId,
-    p_amount: amount,
-    p_reference: `${reference}-REFUND`,
-    p_metadata: { reason: "airtime_purchase_failed" },
-  });
+    await admin.rpc("post_transfer", {
+      p_from_account: utilityAccountId,
+      p_to_account: userAccountId,
+      p_amount: amount,
+      p_reference: `${reference}-REFUND`,
+      p_metadata: { reason: "airtime_purchase_failed", request_id: rid },
+    });
 
-  // Mark refunded
-  await admin
-    .from("utility_purchases")
-    .update({ status: "refunded" })
-    .eq("reference", reference);
+    await admin
+      .from("utility_purchases")
+      .update({ status: "refunded" })
+      .eq("reference", reference);
+  } catch (e) {
+    console.error(`[${rid}] refund failed`, e);
+    // do not throw; refund failure should not crash response
+  }
 }

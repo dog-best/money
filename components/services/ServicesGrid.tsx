@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Text, TouchableOpacity, View } from "react-native";
-import AirtimeModal from "./AirtimeModal";
-import DataModal from "./DataModal";
+import AirtimeModal from "../Bills/airtime/AirtimeModal";
+import DataModal from "../Bills/data/DataModal";
 
 export default function ServicesGrid() {
   const [airtimeVisible, setAirtimeVisible] = useState(false);
