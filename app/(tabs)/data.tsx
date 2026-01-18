@@ -1,2 +1,2 @@
-import DataScreen from "@/components/data/DataScreen";
+import DataScreen from "@/components/Bills/data/DataScreen";
 export default DataScreen;

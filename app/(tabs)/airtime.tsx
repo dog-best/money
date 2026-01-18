@@ -1,2 +1,2 @@
-import AirtimeScreen from "@/components/airtime/AirtimeScreen";
+import AirtimeScreen from "@/components/Bills/airtime/AirtimeScreen";
 export default AirtimeScreen;
