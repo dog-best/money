@@ -1,8 +1,8 @@
-//components/airtime/AirtimeScreen.tsx
 import ConfirmPurchaseModal from "@/components/common/ConfirmPurchaseModal";
 import { useMakePurchase } from "@/hooks/Purchase/useMakePurchase";
 import { useProviders } from "@/hooks/Purchase/useProviders";
-import React, { useState } from "react";
+import { supabase } from "@/supabase/client";
+import React, { useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -13,8 +13,12 @@ import {
 } from "react-native";
 import ProviderSelect from "./ProviderSelect";
 
+function buildReference(prefix: string) {
+  return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
 export default function AirtimeScreen() {
-  const { providers } = useProviders();
+  const { providers, loading: providersLoading } = useProviders();
   const { buyAirtime, loading } = useMakePurchase();
 
   const [provider, setProvider] = useState<string>("");
@@ -22,25 +26,40 @@ export default function AirtimeScreen() {
   const [amount, setAmount] = useState("");
   const [confirmVisible, setConfirmVisible] = useState(false);
 
+  const canContinue = useMemo(() => {
+    const numericAmount = Number(amount);
+    return (
+      !!provider &&
+      !!phone.trim() &&
+      Number.isFinite(numericAmount) &&
+      numericAmount > 0 &&
+      !loading
+    );
+  }, [provider, phone, amount, loading]);
+
   const submit = async () => {
     setConfirmVisible(false);
 
+    // ✅ Auth check (prevents 401)
+    const { data: sessionData, error: sessionErr } = await supabase.auth.getSession();
+    if (sessionErr || !sessionData.session?.access_token) {
+      Alert.alert("Sign in required", "Please sign in to continue.");
+      return;
+    }
+
     const payload = {
       provider,
-      phone,
+      phone: phone.trim(),
       amount: Number(amount),
-      reference: `AIRTIME-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      reference: buildReference("AIRTIME"),
     };
 
     try {
       await buyAirtime(payload);
       Alert.alert("Success", "Airtime purchase successful");
       setAmount("");
-      // optional:
-      // setPhone("");
-      // setProvider("");
     } catch (e: any) {
-      Alert.alert("Failed", e?.message ?? "Airtime purchase failed");
+      Alert.alert("Failed", e?.message ?? "We couldn’t complete your request right now. Please try again.");
     }
   };
 
@@ -48,11 +67,13 @@ export default function AirtimeScreen() {
     <View className="flex-1 p-4 gap-4 bg-white">
       <Text className="text-xl font-semibold">Buy Airtime</Text>
 
-      <ProviderSelect
-        providers={providers}
-        value={provider}
-        onChange={setProvider}
-      />
+      {providersLoading ? (
+        <View className="py-2">
+          <ActivityIndicator />
+        </View>
+      ) : (
+        <ProviderSelect providers={providers} value={provider} onChange={setProvider} />
+      )}
 
       <TextInput
         placeholder="Phone Number"
@@ -71,9 +92,9 @@ export default function AirtimeScreen() {
       />
 
       <TouchableOpacity
-        disabled={!provider || !phone || !amount || loading}
+        disabled={!canContinue}
         onPress={() => setConfirmVisible(true)}
-        className="bg-blue-600 rounded-lg p-4"
+        className={`rounded-lg p-4 ${canContinue ? "bg-blue-600" : "bg-gray-300"}`}
       >
         {loading ? (
           <ActivityIndicator />
@@ -96,4 +117,3 @@ export default function AirtimeScreen() {
     </View>
   );
 }
-
